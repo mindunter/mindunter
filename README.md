@@ -18,16 +18,8 @@
 
 ---
 
-### 🛠️ Tech I work with
-
-<p>
-  <img src="https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black" alt="JavaScript">
-  <img src="https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black" alt="React">
-  <img src="https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white" alt="Vite">
-  <img src="https://img.shields.io/badge/PHP-777BB4?style=flat&logo=php&logoColor=white" alt="PHP">
-  <img src="https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white" alt="Docker">
-  <img src="https://img.shields.io/badge/Moodle-F98012?style=flat&logo=moodle&logoColor=white" alt="Moodle">
+<p align="center">
+  <img src="./assets/tech-stack.svg" width="100%" alt="Tech stack — Languages: Python, JavaScript, PHP · Frontend: React, Vite · Platforms: Docker, Moodle">
 </p>
 
 ---

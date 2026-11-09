@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="242" viewBox="0 0 860 242" role="img" aria-labelledby="t">
+  <title id="t">Tech stack: Python, JavaScript, PHP, React, Vite, Docker, Moodle</title>
+  <style>
+    :root { --bg:#ffffff; --border:#e2e8f0; --fg:#0f172a; --muted:#64748b; --chip:#f8fafc; --a:#2563eb; --b:#16a34a; --p:#9333ea; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#0d1117; --border:#30363d; --fg:#e6edf3; --muted:#8b949e; --chip:#161b22; --a:#60a5fa; --b:#4ade80; --p:#c084fc; }
+    }
+    .c0 { --c:#3776AB; }
+    @media (prefers-color-scheme: dark) { .c0 { --c:#5a9fd4; } }
+    .c1 { --c:#d4b106; }
+    @media (prefers-color-scheme: dark) { .c1 { --c:#F7DF1E; } }
+    .c2 { --c:#777BB4; }
+    @media (prefers-color-scheme: dark) { .c2 { --c:#a5a8e0; } }
+    .c3 { --c:#0e9fbf; }
+    @media (prefers-color-scheme: dark) { .c3 { --c:#61DAFB; } }
+    .c4 { --c:#646CFF; }
+    @media (prefers-color-scheme: dark) { .c4 { --c:#9499ff; } }
+    .c5 { --c:#2496ED; }
+    @media (prefers-color-scheme: dark) { .c5 { --c:#5cb4f5; } }
+    .c6 { --c:#F98012; }
+    @media (prefers-color-scheme: dark) { .c6 { --c:#ffa04d; } }
+    .sa { stop-color: var(--a); } .sp { stop-color: var(--p); } .sb { stop-color: var(--b); }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .card { fill: var(--bg); stroke: var(--border); }
+    .bar { transform-origin: left; transform: scaleX(0); animation: grow 1s cubic-bezier(.2,.8,.2,1) .1s forwards; }
+    .title { font-size: 20px; font-weight: 700; fill: var(--fg); opacity: 0; animation: fade .6s ease-out .1s forwards; }
+    .label { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; fill: var(--muted); opacity: 0; animation: fade .6s ease-out forwards; }
+    .pill { opacity: 0; transform-box: fill-box; transform-origin: center; animation: pop .5s cubic-bezier(.3,1.5,.5,1) forwards; }
+    .pill rect { fill: var(--chip); stroke: var(--c); stroke-opacity: .55; }
+    .pill text { font-size: 14px; font-weight: 600; fill: var(--fg); }
+    .dot { fill: var(--c); transform-box: fill-box; transform-origin: center; animation: pulse 3s ease-in-out infinite; }
+    @keyframes grow { to { transform: scaleX(1); } }
+    @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    @keyframes pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+    @keyframes pulse { 0%,70%,100% { transform: scale(1); } 35% { transform: scale(1.5); } }
+  </style>
+  <defs>
+    <linearGradient id="ln" x1="0" x2="1"><stop offset="0" class="sa"/><stop offset=".5" class="sp"/><stop offset="1" class="sb"/></linearGradient>
+    <clipPath id="c"><rect x=".5" y=".5" width="859" height="241" rx="12"/></clipPath>
+  </defs>
+  <rect class="card" x=".5" y=".5" width="859" height="241" rx="12"/>
+  <g clip-path="url(#c)"><rect class="bar" x="0" y="0" width="860" height="4" fill="url(#ln)"/></g>
+  <text class="title" x="32" y="52">🛠️ Tech I work with</text>
+  <text class="label" x="32" y="105" style="animation-delay:0.15s">Languages</text>
+  <g class="pill c0" style="animation-delay:0.30s">
+    <rect x="160" y="86" width="110" height="30" rx="15"/>
+    <circle class="dot" cx="178" cy="101" r="5" style="animation-delay:1.50s"/>
+    <text x="192" y="106">Python</text>
+  </g>
+  <g class="pill c1" style="animation-delay:0.39s">
+    <rect x="282" y="86" width="146" height="30" rx="15"/>
+    <circle class="dot" cx="300" cy="101" r="5" style="animation-delay:1.59s"/>
+    <text x="314" y="106">JavaScript</text>
+  </g>
+  <g class="pill c2" style="animation-delay:0.48s">
+    <rect x="440" y="86" width="83" height="30" rx="15"/>
+    <circle class="dot" cx="458" cy="101" r="5" style="animation-delay:1.68s"/>
+    <text x="472" y="106">PHP</text>
+  </g>
+  <text class="label" x="32" y="151" style="animation-delay:0.30s">Frontend</text>
+  <g class="pill c3" style="animation-delay:0.57s">
+    <rect x="160" y="132" width="101" height="30" rx="15"/>
+    <circle class="dot" cx="178" cy="147" r="5" style="animation-delay:1.77s"/>
+    <text x="192" y="152">React</text>
+  </g>
+  <g class="pill c4" style="animation-delay:0.66s">
+    <rect x="273" y="132" width="92" height="30" rx="15"/>
+    <circle class="dot" cx="291" cy="147" r="5" style="animation-delay:1.86s"/>
+    <text x="305" y="152">Vite</text>
+  </g>
+  <text class="label" x="32" y="197" style="animation-delay:0.45s">Platforms</text>
+  <g class="pill c5" style="animation-delay:0.75s">
+    <rect x="160" y="178" width="110" height="30" rx="15"/>
+    <circle class="dot" cx="178" cy="193" r="5" style="animation-delay:1.95s"/>
+    <text x="192" y="198">Docker</text>
+  </g>
+  <g class="pill c6" style="animation-delay:0.84s">
+    <rect x="282" y="178" width="110" height="30" rx="15"/>
+    <circle class="dot" cx="300" cy="193" r="5" style="animation-delay:2.04s"/>
+    <text x="314" y="198">Moodle</text>
+  </g>
+</svg>

@@ -1,7 +1,5 @@
-<h1 align="center">Hi, I'm Mindhunter 👋</h1>
-
 <p align="center">
-  Developer building <b>education platforms</b>, <b>audio tooling</b>, and <b>local-first AI</b>.
+  <img src="./assets/header.svg" width="100%" alt="Hi, I'm Mindhunter — building education platforms, audio tooling, and local-first AI">
 </p>
 
 <p align="center">
@@ -13,10 +11,10 @@
 
 ### 🚀 Featured Projects
 
-| Project | What it is | Stack |
-|---|---|---|
-| **[Design Mastery LMS](https://github.com/mindunter/design-mastery-lms)** | Self-paced design learning platform — 7 tracks, 61 illustrated lessons, single-file portable build | `React` `Vite` `JavaScript` |
-| **[Voice Attendance System](https://github.com/mindunter/VoiceAttendanceSystem)** | Offline-first voice assistant + attendance — wake word, Whisper STT, speaker recognition, Piper TTS, Ollama LLM | `Python` `Whisper` `Ollama` |
+<p align="center">
+  <a href="https://github.com/mindunter/design-mastery-lms"><img src="./assets/card-lms.svg" width="49%" alt="Design Mastery LMS — self-paced design learning platform (React, Vite, JavaScript)"></a>
+  <a href="https://github.com/mindunter/VoiceAttendanceSystem"><img src="./assets/card-voice.svg" width="49%" alt="Voice Attendance System — offline-first voice assistant and attendance (Python, Whisper, Ollama)"></a>
+</p>
 
 ---
 

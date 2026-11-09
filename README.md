@@ -9,9 +9,21 @@
 
 ---
 
+### 🌐 Connect
+
+<p align="center">
+  <a href="https://mindunter.framer.website"><img src="./assets/connect-portfolio.svg" width="32%" alt="Portfolio — mindunter.framer.website"></a>
+  <a href="https://www.instagram.com/mindunter.ai/"><img src="./assets/connect-instagram.svg" width="32%" alt="Instagram — @mindunter.ai"></a>
+  <a href="https://mindunter.github.io/redline-design-school/"><img src="./assets/connect-redline.svg" width="32%" alt="Live course — Redline Design School"></a>
+</p>
+
+---
+
 ### 🚀 Featured Projects
 
 <p align="center">
+  <a href="https://mindunter.github.io/redline-design-school/"><img src="./assets/card-redline.svg" width="49%" alt="Redline Design School — free product design course with interactive labs (live site)"></a>
+  <a href="https://github.com/mindunter/new-media"><img src="./assets/card-newmedia.svg" width="49%" alt="New Media — marketing site for a creator-distribution agency (React, TypeScript, Tailwind, three.js)"></a>
   <a href="https://github.com/mindunter/design-mastery-lms"><img src="./assets/card-lms.svg" width="49%" alt="Design Mastery LMS — self-paced design learning platform (React, Vite, JavaScript)"></a>
   <a href="https://github.com/mindunter/VoiceAttendanceSystem"><img src="./assets/card-voice.svg" width="49%" alt="Voice Attendance System — offline-first voice assistant and attendance (Python, Whisper, Ollama)"></a>
 </p>

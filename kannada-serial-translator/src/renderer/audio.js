@@ -111,13 +111,16 @@
   class LiveSegmenter {
     constructor(onChunk, opts = {}) {
       this.onChunk = onChunk;
-      this.minSec = opts.minSec ?? 2.5;
-      this.maxSec = opts.maxSec ?? 12;
-      this.pauseSec = opts.pauseSec ?? 0.55;
+      this.minSec = opts.minSec ?? 3;
+      this.maxSec = opts.maxSec ?? 15;
+      this.pauseSec = opts.pauseSec ?? 0.6;
+      this.preRollSec = opts.preRollSec ?? 0.4; // silence kept before speech starts
       this.reset();
     }
     reset() {
       this.parts = [];
+      this.dbs = [];
+      this.loud = [];
       this.len = 0;
       this.pending = new Float32Array(0);
       this.floor = -60;
@@ -144,19 +147,40 @@
       if (db < this.floor) this.floor = db; else this.floor += 0.02;
       const speaking = db > Math.max(this.floor + 9, -52);
       this.parts.push(new Float32Array(frame));
+      this.dbs.push(db);
+      this.loud.push(speaking);
       this.len += frame.length;
       const sec = this.len / SR;
       if (speaking) { this.silentRun = 0; this.speechSec += FRAME / SR; } else this.silentRun += FRAME / SR;
-      // Drop long stretches of pure silence instead of sending them.
-      if (this.speechSec === 0 && sec > 1.5) { this.parts.shift(); this.len -= FRAME; return; }
-      if ((sec >= this.minSec && this.silentRun >= this.pauseSec) || sec >= this.maxSec) this.flush();
+      // Drop long stretches of pure silence instead of sending them (keep a short pre-roll).
+      if (this.speechSec === 0 && sec > this.preRollSec) { this.parts.shift(); this.dbs.shift(); this.loud.shift(); this.len -= FRAME; return; }
+      if (sec >= this.minSec && this.silentRun >= this.pauseSec) this.flush();
+      else if (sec >= this.maxSec) this._forceCut();
+    }
+    // Nobody paused: cut at the quietest moment of the last few seconds, not mid-word,
+    // and carry the rest over into the next chunk.
+    _forceCut() {
+      const n = this.parts.length;
+      const look = Math.min(n - 1, Math.round(3 / (FRAME / SR)));
+      let best = n, bestDb = Infinity;
+      for (let i = n - look; i < n; i++) {
+        const d = (this.dbs[i - 1] + this.dbs[i] + (this.dbs[i + 1] ?? this.dbs[i])) / 3;
+        if (d < bestDb) { bestDb = d; best = i; }
+      }
+      const rest = { parts: this.parts.splice(best), dbs: this.dbs.splice(best), loud: this.loud.splice(best) };
+      this.len = this.parts.length * FRAME;
+      this.speechSec = this.loud.filter(Boolean).length * (FRAME / SR);
+      this.flush();
+      this.parts = rest.parts; this.dbs = rest.dbs; this.loud = rest.loud;
+      this.len = this.parts.length * FRAME;
+      this.speechSec = this.loud.filter(Boolean).length * (FRAME / SR);
     }
     flush() {
       const hadSpeech = this.speechSec >= 0.35;
       const out = new Float32Array(this.len);
       let o = 0;
       for (const p of this.parts) { out.set(p, o); o += p.length; }
-      this.parts = []; this.len = 0; this.silentRun = 0; this.speechSec = 0;
+      this.parts = []; this.dbs = []; this.loud = []; this.len = 0; this.silentRun = 0; this.speechSec = 0;
       if (hadSpeech && out.length) this.onChunk(out);
     }
   }

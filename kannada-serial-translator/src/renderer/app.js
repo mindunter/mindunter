@@ -581,6 +581,8 @@ async function translateBatch(project, batch, job) {
     for (const l of batch) {
       const r = byId.get(l.id);
       if (!r) continue;
+      // Claude's corrected Tamil replaces what was misheard (the writer's own edits win).
+      if (r.ta && !l.taEdited) { if (l.taHeard == null) l.taHeard = l.ta; l.ta = r.ta; }
       Object.assign(l, { kn: r.kn, gender: r.gender || 'unknown', note: r.note || '', edited: false });
     }
     updateMeta();
@@ -676,7 +678,7 @@ function makeLineEl(line) {
   el.dataset.id = line.id;
   el.innerHTML = `
     <button class="time" title="Play the original Tamil"></button>
-    <div class="ta"></div>
+    <div class="ta" spellcheck="false" title="Click to correct the Tamil, then ↻ to write the Kannada again"></div>
     <div class="knwrap"><div class="kn" contenteditable="true" spellcheck="false"></div><div class="sub"></div></div>
     <div class="acts">
       <button class="act" data-act="orig" title="Play original Tamil">▶</button>
@@ -684,6 +686,23 @@ function makeLineEl(line) {
       <button class="act" data-act="redo" title="Write this line again">↻</button>
     </div>`;
   E.els.set(line.id, el);
+  const ta = $('.ta', el);
+  ta.addEventListener('focus', () => selectLine(line, false));
+  ta.addEventListener('input', () => {
+    if (line.taHeard == null) line.taHeard = line.ta;
+    line.ta = ta.innerText.replace(/\s*\n\s*/g, ' ').trim();
+    line.taEdited = true;
+    updateSub(line, el);
+    saveProject();
+  });
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ta.blur(); redoLine(line); }
+    if (e.key === 'Escape') ta.blur();
+  });
+  ta.addEventListener('paste', (e) => {
+    e.preventDefault();
+    document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+  });
   const kn = $('.kn', el);
   kn.addEventListener('focus', () => selectLine(line, false));
   kn.addEventListener('input', () => {
@@ -701,7 +720,7 @@ function makeLineEl(line) {
     e.preventDefault();
     document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
   });
-  el.addEventListener('click', (e) => { if (!e.target.closest('.kn, .act')) selectLine(line, true); });
+  el.addEventListener('click', (e) => { if (!e.target.closest('.kn, .ta, .act')) selectLine(line, true); });
   $('.time', el).onclick = (e) => { e.stopPropagation(); selectLine(line, false); playOriginal(line); };
   $('[data-act=orig]', el).onclick = () => playOriginal(line);
   $('[data-act=speak]', el).onclick = () => speakLine(line);
@@ -716,8 +735,9 @@ function updateLineEl(line, el = E.els.get(line.id)) {
   el.classList.toggle('failed', !!line.error);
   $('.time', el).textContent = fmtTime(line.start);
   const ta = $('.ta', el);
-  ta.textContent = line.error ? 'Could not hear this part.' : line.ta;
-  ta.title = line.error || '';
+  if (document.activeElement !== ta) ta.textContent = line.error ? 'Could not hear this part.' : line.ta;
+  ta.contentEditable = line.error ? 'false' : 'true';
+  if (line.error) ta.title = line.error;
   const kn = $('.kn', el);
   if (document.activeElement !== kn) kn.textContent = line.kn || '';
   kn.contentEditable = line.error ? 'false' : 'true';
@@ -732,6 +752,8 @@ function updateSub(line, el) {
   const bits = [];
   if (line.kn && line.gender === 'male') bits.push('<span class="who m">♂ man</span>');
   if (line.kn && line.gender === 'female') bits.push('<span class="who f">♀ woman</span>');
+  if (line.taEdited) bits.push('<span class="edited-tag">✎ Tamil edited</span>');
+  else if (line.taHeard != null && line.taHeard !== line.ta) bits.push(`<span class="fixed-tag" title="Heard as: ${escapeHtml(line.taHeard)}">✓ Tamil corrected</span>`);
   if (line.edited) bits.push('<span class="edited-tag">✎ edited</span>');
   if (line.note) bits.push(`<span class="note">${escapeHtml(line.note)}</span>`);
   $('.sub', el).innerHTML = bits.join('');
@@ -1080,7 +1102,12 @@ async function startLive() {
     await ctx.audioWorklet.addModule('capture-worklet.js');
     const src = ctx.createMediaStreamSource(stream);
     const node = new AudioWorkletNode(ctx, 'capture-processor');
-    src.connect(node);
+    // Cut the bass rumble and background-music low end, which confuse speech recognition.
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 90;
+    src.connect(hp);
+    hp.connect(node);
     node.connect(ctx.destination); // outputs silence; keeps the worklet running
     Live.seg = new AudioKit.LiveSegmenter(onLiveChunk);
     node.port.onmessage = (e) => {
@@ -1150,6 +1177,7 @@ function onLiveChunk(samples) {
       const context = Live.lines.filter((l) => l.kn).slice(-10).map((l) => ({ ta: l.ta, kn: l.kn }));
       const res = await api.translate([{ id: line.id, ta: line.ta }], context, true);
       const out = res.lines[0] || {};
+      if (out.ta) { line.taHeard = line.ta; line.ta = out.ta; $('.ta', el).textContent = line.ta; $('.ta', el).title = 'Heard as: ' + line.taHeard; }
       line.kn = out.kn || '';
       line.gender = out.gender || 'unknown';
       kn.className = 'kn';

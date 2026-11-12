@@ -255,6 +255,10 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .line .who.m { background: var(--male-soft); color: var(--male); }
 .line .who.f { background: var(--female-soft); color: var(--female); }
 .line .edited-tag { color: var(--warn); font-weight: 600; }
+.line .fixed-tag { color: var(--ok); font-weight: 600; cursor: help; }
+.line .ta[contenteditable="true"] { border-radius: 7px; padding: 0 6px; margin: 0 -6px; outline: none; cursor: text; }
+.line .ta[contenteditable="true"]:hover { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.line .ta:focus { background: var(--surface); color: var(--text); box-shadow: 0 0 0 2px var(--gold); }
 .line .note { color: var(--warn); }
 .line .acts { display: flex; gap: 4px; justify-content: flex-end; opacity: 0; transition: opacity .12s; }
 .line:hover .acts, .line.current .acts, .line:focus-within .acts { opacity: 1; }

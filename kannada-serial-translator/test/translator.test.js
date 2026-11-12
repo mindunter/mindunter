@@ -23,6 +23,8 @@ test('Claude path returns Kannada + gender, prompt carries glossary', async () =
   assert.strictEqual(r.engine, 'claude');
   assert.deepStrictEqual(r.lines.map((l) => l.kn), ['ಅಮ್ಮಾ, ನಾನು ಬಂದೆ.', 'ನೀನು ಎಲ್ಲಿಗೆ ಹೋಗಿದ್ದೆ?']);
   assert.strictEqual(r.lines[0].gender, 'male');
+  assert.strictEqual(r.lines[0].ta, undefined); // unchanged Tamil is not echoed back
+  assert.strictEqual(r.lines[1].ta, 'நீ எங்க போயிருந்த?!'); // corrected Tamil is returned
   const body = mock.calls.claudeBodies.at(-1);
   assert.match(body.system[0].text, /ಮೀನಾ/);
   assert.strictEqual(body.model, 'claude-haiku-5-5');

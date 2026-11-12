@@ -76,6 +76,7 @@ function start(port) {
         const payload = JSON.parse(user.slice(user.indexOf('{')));
         const lines = payload.translate_these.map((l) => ({
           id: l.id,
+          tamil: l.tamil.replace('போயிருந்த?', 'போயிருந்த?!'),
           kannada: KANNADA[l.tamil] || 'ಸರಿ.',
           gender: l.tamil.includes('வந்துட்டேன்') ? 'male' : 'female',
           note: l.tamil.includes('கோவில') ? 'Temple visit kept as is.' : '',

@@ -32,7 +32,8 @@ function systemPrompt(settings) {
     '- Translate meaning, emotion and intent, not word-by-word. Replace Tamil idioms, proverbs and jokes with natural Kannada equivalents that land the same way.\n',
     '- Keep the same respect level: நீங்க/நீங்கள் → ನೀವು, நீ → ನೀನು; keep "-ங்க" politeness as "-ರಿ/-ಇ" endings. Map kinship terms the way Kannada families say them (அம்மா→ಅಮ್ಮ, அப்பா→ಅಪ್ಪ, அண்ணா→ಅಣ್ಣ, அக்கா→ಅಕ್ಕ, அண்ணி→ಅತ್ತಿಗೆ, மாமா→ಮಾವ, அத்தை→ಅತ್ತೆ, மாமியார்→ಅತ್ತೆ, தம்பி→ತಮ್ಮ, தங்கச்சி→ತಂಗಿ).\n',
     '- Use correct Kannada punctuation: full stop, comma, question mark, exclamation mark and "..." for trailing or hesitant speech, so a voice actor can read it with the right pauses and intonation.\n',
-    '- Speech recognition sometimes mishears words. Use the surrounding lines to infer what was really said; never translate obvious recognition garbage literally. If a line is pure noise, music or unintelligible, return an empty "kannada" string.\n',
+    '- Speech recognition sometimes mishears words, splits or merges words wrongly and drops case endings. Use the surrounding lines to infer what was really said; never translate obvious recognition garbage literally. If a line is pure noise, music or unintelligible, return empty "tamil" and "kannada" strings.\n',
+    '- In "tamil", first write the Tamil line as the character most likely really said it: fix misheard words, word breaks, verb and case endings, names from the glossary, and add punctuation. Keep it spoken, colloquial Tamil exactly as in the serial (do not make it formal or literary). If the line was already right, repeat it unchanged. Translate this corrected Tamil.\n',
     '- Keep character names consistent across the episode. Use the glossary below for names and places when given.\n',
     '- Output only Kannada script in "kannada" (no Tamil, no transliteration, no explanations).\n',
     '- In "gender", say whether the speaker of that line is male or female, judged from Tamil verb endings (-ன்/-ான் male, -ள்/-ாள் female), forms of address and context; use "unknown" when you cannot tell.\n',
@@ -46,6 +47,7 @@ const OutputSchema = z.object({
   lines: z.array(
     z.object({
       id: z.string(),
+      tamil: z.string(),
       kannada: z.string(),
       gender: z.enum(['male', 'female', 'unknown']),
       note: z.string(),
@@ -71,7 +73,8 @@ function useClaude(settings) {
 /**
  * lines:   [{ id, ta }]
  * context: [{ ta, kn }]  — the previous few lines, so the scene flows.
- * returns: { engine, lines: [{ id, kn, gender, note }], warning? }
+ * returns: { engine, lines: [{ id, ta?, kn, gender, note }], warning? }
+ *          ta is set only when Claude corrected the heard Tamil.
  */
 async function translateLines(settings, lines, context, { live = false } = {}) {
   const todo = lines.filter((l) => String(l.ta || '').trim());
@@ -130,7 +133,8 @@ async function viaClaude(settings, lines, context, live) {
   const byId = new Map(parsed.lines.map((l) => [String(l.id), l]));
   return lines.map((l) => {
     const r = byId.get(String(l.id));
-    return { id: l.id, kn: r ? r.kannada.trim() : '', gender: r ? r.gender : 'unknown', note: r ? r.note.trim() : '' };
+    const ta = r ? r.tamil.trim() : '';
+    return { id: l.id, ta: ta && ta !== String(l.ta).trim() ? ta : undefined, kn: r ? r.kannada.trim() : '', gender: r ? r.gender : 'unknown', note: r ? r.note.trim() : '' };
   });
 }
 

@@ -79,3 +79,16 @@ test('splitText respects limits on sentence boundaries', () => {
   assert.ok(parts.every((p) => p.length <= 120));
   assert.strictEqual(parts.join(' '), t);
 });
+
+test('forced cuts keep every sample of a long monologue', () => {
+  const sr = 16000, s = new Float32Array(sr * 40);
+  for (let i = 0; i < s.length; i++) s[i] = 0.3 * Math.sin(i / 7) * (0.6 + 0.4 * Math.sin(i / 3000)); // never silent
+  const chunks = [];
+  const seg = new A.LiveSegmenter((c) => chunks.push(c.length));
+  for (let i = 0; i < s.length; i += 2048) seg.push(s.subarray(i, i + 2048));
+  seg.flush();
+  assert.ok(chunks.length >= 3);
+  assert.ok(chunks.every((n) => n / sr <= 15.05));
+  const total = chunks.reduce((a, b) => a + b, 0);
+  assert.ok(s.length - total < 480 * 2, `lost ${s.length - total} samples`);
+});

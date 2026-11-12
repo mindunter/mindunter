@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' file: blob: data:; img-src 'self' data: blob:; worker-src 'self' blob:" />
+  <title>Anuvaada</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-kn">ಅನುವಾದ</span>
+      <span class="brand-en">Anuvaada <small>Tamil → Kannada</small></span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="episode" role="tab">🎬 Episode</button>
+      <button class="tab" data-tab="live" role="tab">🎙️ Live</button>
+      <button class="tab" data-tab="settings" role="tab">⚙️ Settings</button>
+    </nav>
+    <div class="keystatus" id="keystatus"></div>
+  </header>
+
+  <!-- ================= EPISODE ================= -->
+  <section class="view active" id="view-episode">
+    <aside class="sidebar">
+      <button class="btn primary big" id="btn-open">＋ Open episode file</button>
+      <p class="hint">Audio or video: mp4, mkv, mp3, wav, m4a…</p>
+      <h3>Saved work</h3>
+      <ul class="projects" id="projects"></ul>
+    </aside>
+
+    <div class="main">
+      <div class="empty" id="episode-empty">
+        <div class="empty-kn">ತಮಿಳು ಸಂಚಿಕೆಯನ್ನು ತೆರೆಯಿರಿ</div>
+        <p>Open a Tamil episode. Anuvaada will listen to it, write every line in natural spoken Kannada,
+          and read it back to you in a Kannada voice. Your work is saved automatically.</p>
+        <button class="btn primary big" id="btn-open-2">＋ Open episode file</button>
+      </div>
+
+      <div class="episode hidden" id="episode">
+        <div class="ep-head">
+          <div class="ep-title">
+            <input id="ep-name" class="ep-name" spellcheck="false" />
+            <div class="ep-meta" id="ep-meta"></div>
+          </div>
+          <div class="ep-actions">
+            <button class="btn" id="btn-speak-all">🔊 Speak all in Kannada</button>
+            <button class="btn ghost hidden" id="btn-stop-speak">■ Stop</button>
+            <div class="dropdown">
+              <button class="btn" id="btn-export">⬇ Export ▾</button>
+              <div class="menu hidden" id="export-menu">
+                <button data-export="txt">Kannada script (.txt)</button>
+                <button data-export="doc">Script with Tamil + notes (.doc for Word)</button>
+                <button data-export="srt">Kannada subtitles (.srt)</button>
+                <button data-export="csv">Side-by-side table (.csv for Excel)</button>
+                <button data-export="wav">Kannada voice — all lines (.wav)</button>
+                <button data-export="dub">Kannada dub track timed to episode (.wav)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress hidden" id="progress">
+          <div class="bar"><div class="fill" id="progress-fill"></div></div>
+          <div class="progress-text"><span id="progress-text"></span>
+            <button class="link" id="btn-cancel">Cancel</button></div>
+        </div>
+
+        <div class="player-wrap" id="player-wrap">
+          <video id="player" controls></video>
+          <button class="btn ghost hidden" id="btn-relink">Open the episode file to play the original Tamil audio</button>
+        </div>
+
+        <div class="toolbar">
+          <label class="check"><input type="checkbox" id="follow" checked /> Follow playback</label>
+          <input id="search" class="search" placeholder="Search Tamil or Kannada…" />
+          <button class="btn small" id="btn-retranslate-all" title="Translate everything again with current settings (glossary, style)">↻ Re-translate all</button>
+        </div>
+
+        <div class="lines" id="lines"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LIVE ================= -->
+  <section class="view" id="view-live">
+    <div class="live-controls">
+      <div class="field">
+        <label>Listen to</label>
+        <div class="seg" id="live-source">
+          <button data-src="system" class="on">💻 Sound playing on this laptop</button>
+          <button data-src="mic">🎤 Microphone</button>
+        </div>
+      </div>
+      <div class="field" id="mic-field">
+        <label for="mic-select">Microphone</label>
+        <select id="mic-select"></select>
+      </div>
+      <label class="check"><input type="checkbox" id="live-speak" /> Speak Kannada aloud</label>
+      <button class="btn primary big" id="btn-live">▶ Start listening</button>
+      <div class="meter"><div class="meter-fill" id="meter"></div></div>
+      <div class="live-state" id="live-state">Not listening</div>
+    </div>
+    <p class="hint live-hint" id="live-hint">
+      Play the Tamil episode (YouTube, Hotstar, Sun NXT, VLC…) on this laptop and press Start. Each line appears
+      in Kannada a few seconds after it is spoken. While Kannada is being spoken aloud, listening pauses so the app does not hear itself — use headphones for the best result.
+    </p>
+    <div class="live-feed" id="live-feed"><div class="live-empty">Kannada lines will appear here as the Tamil dialogue is spoken.</div></div>
+    <div class="live-footer">
+      <button class="btn" id="btn-live-save">💾 Save as episode</button>
+      <button class="btn ghost" id="btn-live-clear">Clear</button>
+    </div>
+  </section>
+
+  <!-- ================= SETTINGS ================= -->
+  <section class="view" id="view-settings">
+    <div class="settings">
+      <div class="card">
+        <h2>API keys</h2>
+        <p class="hint">Keys are stored only on this laptop, encrypted by the operating system.</p>
+        <div class="field">
+          <label for="sarvamKey">Sarvam AI key <span class="req">required</span></label>
+          <input id="sarvamKey" type="password" placeholder="sk_…" autocomplete="off" />
+          <p class="hint">Tamil speech recognition + Kannada voice. Get it at <a href="https://dashboard.sarvam.ai" target="_blank">dashboard.sarvam.ai</a>.</p>
+        </div>
+        <div class="field">
+          <label for="anthropicKey">Claude (Anthropic) key <span class="rec">recommended</span></label>
+          <input id="anthropicKey" type="password" placeholder="sk-ant-…" autocomplete="off" />
+          <p class="hint">Best-quality, scene-aware Kannada dialogue translation. Get it at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Without it, Sarvam's translator is used.</p>
+        </div>
+        <button class="btn" id="btn-test">Save &amp; test keys</button>
+        <span id="test-result" class="test-result"></span>
+      </div>
+
+      <div class="card">
+        <h2>Kannada style</h2>
+        <div class="field">
+          <label for="kannadaStyle">How characters should speak</label>
+          <select id="kannadaStyle">
+            <option value="bengaluru">Bengaluru / Old-Mysuru spoken (most serials)</option>
+            <option value="mysuru">Mysuru–Mandya family / village</option>
+            <option value="north">North Karnataka (Hubballi–Dharwad)</option>
+            <option value="formal">Standard / formal Kannada</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="translationEngine">Translator</label>
+          <select id="translationEngine">
+            <option value="auto">Claude if key is set, otherwise Sarvam</option>
+            <option value="sarvam">Always Sarvam (Mayura)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="glossary">Character &amp; place names for the remake</label>
+          <textarea id="glossary" rows="6" placeholder="One per line, Tamil = Kannada&#10;மீனா = ಮೀನಾ&#10;கார்த்திக் = ಕಾರ್ತಿಕ್&#10;மதுரை = ಮೈಸೂರು"></textarea>
+        </div>
+        <div class="field">
+          <label for="storyNotes">Story notes (optional)</label>
+          <textarea id="storyNotes" rows="4" placeholder="e.g. Meena is the elder daughter-in-law, always respectful to her mother-in-law. Karthik speaks rough, street-style."></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Kannada voice</h2>
+        <div class="field">
+          <label for="ttsModel">Voice model</label>
+          <select id="ttsModel">
+            <option value="bulbul:v3">Bulbul v3 (natural, recommended)</option>
+            <option value="bulbul:v4-flash">Bulbul v4 Flash (Kannada persona voices)</option>
+            <option value="bulbul:v2">Bulbul v2 (classic)</option>
+          </select>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="voiceFemale">Main / female voice</label>
+            <select id="voiceFemale"></select>
+          </div>
+          <div class="field">
+            <label for="voiceMale">Male voice</label>
+            <select id="voiceMale"></select>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="voiceAuto" /> Use the male voice for men's lines (detected automatically)</label>
+        <div class="field">
+          <label for="pace">Speaking speed: <b id="pace-val">1.0×</b></label>
+          <input type="range" id="pace" min="0.6" max="1.6" step="0.05" />
+        </div>
+        <button class="btn" id="btn-preview-voice">🔊 Preview voices</button>
+      </div>
+
+      <div class="card">
+        <h2>Speech recognition</h2>
+        <div class="field">
+          <label for="sttModel">Tamil speech model</label>
+          <select id="sttModel">
+            <option value="saaras:v3">Saaras v3 (stable)</option>
+            <option value="saaras:v4">Saaras v4 (latest)</option>
+          </select>
+        </div>
+        <p class="hint" id="app-version"></p>
+      </div>
+    </div>
+  </section>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="audio.js"></script>
+  <script src="voices.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

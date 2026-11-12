@@ -1,0 +1,46 @@
+name: Build Anuvaada installers
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'kannada-serial-translator/**'
+      - '.github/workflows/anuvaada-build.yml'
+    tags:
+      - 'anuvaada-v*'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win
+            artifact: Anuvaada-Windows
+          - os: macos-latest
+            target: --mac
+            artifact: Anuvaada-macOS
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: kannada-serial-translator
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kannada-serial-translator/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - name: Build installer
+        run: npx electron-builder ${{ matrix.target }} --publish never
+        # No paid code-signing certificate: Windows build is unsigned, macOS build is ad-hoc signed.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            kannada-serial-translator/dist/*.exe
+            kannada-serial-translator/dist/*.dmg
+          if-no-files-found: error

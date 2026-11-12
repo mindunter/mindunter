@@ -22,8 +22,8 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1360,
     height: 880,
-    minWidth: 980,
-    minHeight: 640,
+    minWidth: 720,
+    minHeight: 560,
     title: 'Anuvaada — Tamil → Kannada',
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#131118' : '#f7f4ee',
     icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),

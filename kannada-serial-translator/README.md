@@ -22,8 +22,8 @@ You paste the keys into **Settings**. They stay on the laptop and are encrypted 
 ## Install (for the writer)
 
 1. Download the installer:
-   - **Windows:** `Anuvaada-Setup-1.2.0-win-x64.exe`
-   - **Mac:** `Anuvaada-Setup-1.2.0-mac-arm64.dmg` for M1/M2/M3/M4 Macs, or `…-mac-x64.dmg` for older Intel Macs
+   - **Windows:** `Anuvaada-Setup-1.3.0-win-x64.exe`
+   - **Mac:** `Anuvaada-Setup-1.3.0-mac-arm64.dmg` for M1/M2/M3/M4 Macs, or `…-mac-x64.dmg` for older Intel Macs
 2. Install it:
    - **Windows:** double-click the .exe. If a blue "Windows protected your PC" box appears, click **More info → Run anyway**. This appears because the app has no paid code-signing certificate.
    - **Mac:** open the .dmg and drag Anuvaada into Applications. The first time, **right-click the app → Open → Open**.

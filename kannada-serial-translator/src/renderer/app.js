@@ -730,8 +730,8 @@ function updateLineEl(line, el = E.els.get(line.id)) {
 
 function updateSub(line, el) {
   const bits = [];
-  if (line.kn && line.gender === 'male') bits.push('<span class="who">♂ man</span>');
-  if (line.kn && line.gender === 'female') bits.push('<span class="who">♀ woman</span>');
+  if (line.kn && line.gender === 'male') bits.push('<span class="who m">♂ man</span>');
+  if (line.kn && line.gender === 'female') bits.push('<span class="who f">♀ woman</span>');
   if (line.edited) bits.push('<span class="edited-tag">✎ edited</span>');
   if (line.note) bits.push(`<span class="note">${escapeHtml(line.note)}</span>`);
   $('.sub', el).innerHTML = bits.join('');

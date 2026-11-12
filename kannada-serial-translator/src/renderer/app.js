@@ -1,22 +1,14 @@
-/* global AudioKit, VOICES, VOICE_DEFAULTS */
+/* global AudioKit, VOICES, VOICE_DEFAULTS, api */
 'use strict';
-/* `api` is provided by preload.js (window.api) */
+// `api` is provided by preload.js (window.api).
+
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
-
 let settings = {};
 
-// ---------------------------------------------------------------- helpers
-function toast(msg, kind = '', ms = 4500) {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.className = 'toast ' + kind;
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => t.classList.add('hidden'), ms);
-}
+// ================================================================ helpers
 function errMsg(e) {
-  const m = String((e && e.message) || e || 'Unknown error');
-  return m.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+  return String((e && e.message) || e || 'Unknown error').replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 }
 function fmtTime(sec) {
   sec = Math.max(0, sec || 0);
@@ -26,19 +18,24 @@ function fmtTime(sec) {
 }
 function srtTime(sec) {
   const ms = Math.round(Math.max(0, sec) * 1000);
-  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000);
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms % 1000).padStart(3, '0')}`;
+  const p = (n, w = 2) => String(n).padStart(w, '0');
+  return `${p(Math.floor(ms / 3600000))}:${p(Math.floor((ms % 3600000) / 60000))}:${p(Math.floor((ms % 60000) / 1000))},${p(ms % 1000, 3)}`;
 }
 function debounce(fn, ms) {
   let t;
-  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+  const d = (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+  d.cancel = () => clearTimeout(t);
+  return d;
 }
-function newId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-}
-function escapeHtml(s) {
-  return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const escapeHtml = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const toArrayBuffer = (u8) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* not critical */ } },
+};
+
 /** Split a transcript into sentences and spread them over [start,end] by length. */
 function splitTimed(text, start, end) {
   const parts = String(text).split(/(?<=[.!?।…])\s+/).map((s) => s.trim()).filter(Boolean);
@@ -52,49 +49,68 @@ function splitTimed(text, start, end) {
     return seg;
   });
 }
-function toArrayBuffer(u8) {
-  return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+
+// ================================================================ toast
+function toast(msg, opts = {}) {
+  const { kind = '', ms = 4500, action, onAction } = typeof opts === 'string' ? { kind: opts } : opts;
+  const t = $('#toast');
+  $('#toast-text').textContent = msg;
+  const b = $('#toast-btn');
+  b.classList.toggle('hidden', !action);
+  b.textContent = action || '';
+  b.onclick = () => { t.classList.add('hidden'); onAction && onAction(); };
+  t.className = 'toast ' + kind;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.add('hidden'), ms);
 }
 
-// ---------------------------------------------------------------- tabs
-$$('.tab').forEach((b) =>
-  b.addEventListener('click', () => showTab(b.dataset.tab))
-);
+// ================================================================ navigation
 function showTab(name) {
-  $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
+  $$('.tab').forEach((x) => {
+    const on = x.dataset.tab === name;
+    x.classList.toggle('active', on);
+    x.setAttribute('aria-selected', on);
+  });
   $$('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-' + name));
 }
+$$('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+$('#keystatus').onclick = () => showTab('settings');
 
 function renderKeyStatus() {
-  const el = $('#keystatus');
-  el.innerHTML = '';
-  const mk = (label, ok, warn) => {
-    const p = document.createElement('span');
-    p.className = 'pill ' + (ok ? 'ok' : warn ? 'bad' : '');
-    p.textContent = label + (ok ? ' ✓' : warn ? ' — add key' : ' — optional');
-    p.onclick = () => showTab('settings');
-    el.appendChild(p);
-  };
-  mk('Sarvam', settings.sarvamKeySet, true);
-  mk('Claude', settings.anthropicKeySet, false);
+  const dot = (ok, required) => `<i class="d ${ok ? 'ok' : required ? 'bad' : ''}"></i>`;
+  $('#keystatus').innerHTML =
+    `<span class="k">${dot(settings.sarvamKeySet, true)}Sarvam</span><span class="k">${dot(settings.anthropicKeySet, false)}Claude</span>`;
+  $('#keystatus').title = settings.sarvamKeySet ? 'API keys' : 'Sarvam key missing — click to add';
 }
 
-// ---------------------------------------------------------------- voice playback
+// menus: one open at a time, close on outside click / Escape
+function bindMenu(btn, menu) {
+  $(btn).addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = $(menu).classList.contains('hidden');
+    closeMenus();
+    if (open) $(menu).classList.remove('hidden');
+  });
+  $(menu).addEventListener('click', () => closeMenus());
+}
+function closeMenus() { $$('.menu').forEach((m) => m.classList.add('hidden')); }
+document.addEventListener('click', closeMenus);
+
+// ================================================================ Kannada voice
 const Speaker = {
   audio: new Audio(),
   cache: new Map(),
   token: 0,
   onStart: null,
   onEnd: null,
-  sig() {
-    return [settings.ttsModel, settings.voiceFemale, settings.voiceMale, settings.voiceAuto, settings.pace].join('|');
-  },
-  async fetch(text, gender) {
+  sig() { return [settings.ttsModel, settings.voiceFemale, settings.voiceMale, settings.voiceAuto, settings.pace].join('|'); },
+  fetch(text, gender) {
     const key = this.sig() + '|' + (settings.voiceAuto ? gender : '') + '|' + text;
     if (!this.cache.has(key)) {
-      const p = api.speak(text, gender).then((bufs) => bufs.map((b) => toArrayBuffer(b)));
+      const p = api.speak(text, gender).then((bufs) => bufs.map(toArrayBuffer));
       this.cache.set(key, p);
       p.catch(() => this.cache.delete(key));
+      if (this.cache.size > 400) this.cache.delete(this.cache.keys().next().value);
     }
     return this.cache.get(key);
   },
@@ -105,17 +121,11 @@ const Speaker = {
       try {
         this.audio.src = url;
         await new Promise((resolve, reject) => {
-          const done = () => { cleanup(); resolve(); };
-          const fail = () => { cleanup(); reject(new Error('Could not play audio')); };
-          const cleanup = () => {
-            this.audio.removeEventListener('ended', done);
-            this.audio.removeEventListener('pause', done);
-            this.audio.removeEventListener('error', fail);
-          };
-          this.audio.addEventListener('ended', done);
-          this.audio.addEventListener('pause', done);
-          this.audio.addEventListener('error', fail);
-          this.audio.play().catch(fail);
+          const off = () => { this.audio.onended = this.audio.onpause = this.audio.onerror = null; };
+          this.audio.onended = this.audio.onpause = () => { off(); resolve(); };
+          this.audio.onerror = () => { off(); reject(new Error('Could not play audio')); };
+          // stopping while play() is starting is not an error
+          this.audio.play().catch((e) => { off(); token !== this.token || e.name === 'AbortError' ? resolve() : reject(e); });
         });
       } finally {
         URL.revokeObjectURL(url);
@@ -123,7 +133,7 @@ const Speaker = {
     }
     return token === this.token;
   },
-  /** Speak one line. Resolves true if it finished, false if stopped. */
+  /** Speak one line. Resolves true when finished, false when interrupted. */
   async say(text, gender) {
     if (!text || !text.trim()) return true;
     const token = ++this.token;
@@ -136,94 +146,96 @@ const Speaker = {
       this.onEnd && this.onEnd();
     }
   },
-  stop() {
-    this.token++;
-    this.audio.pause();
-  },
+  stop() { this.token++; this.audio.pause(); },
 };
 
-// ================================================================ EPISODE
-const Episode = {
+// ================================================================ EPISODES
+const E = {
   project: null,
-  samples: null, // decoded 16 kHz audio of the current episode (in memory only)
+  samples: null, // 16 kHz audio of the open episode (memory only)
   job: null,
   els: new Map(),
+  busy: new Set(), // line ids being translated right now
+  currentId: null,
   speakingAll: false,
   stopAt: null,
 };
 
-let saveDirty = false;
-const saveProjectDebounced = debounce(() => {
-  const p = Episode.project;
-  if (!p || !saveDirty) return;
-  saveDirty = false;
+// ---------- saving ----------
+let dirty = false;
+const flushSave = debounce(async () => {
+  const p = E.project;
+  if (!p || !dirty) return;
+  dirty = false;
   p.updatedAt = Date.now();
-  api.saveProject(p).then(refreshProjects).catch((e) => toast('Could not save: ' + errMsg(e), 'error'));
+  try {
+    await api.saveProject(p);
+    refreshProjects();
+  } catch (e) {
+    toast('Could not save: ' + errMsg(e), 'error');
+  }
 }, 700);
-function saveProject() {
-  saveDirty = true;
-  saveProjectDebounced();
+function saveProject() { dirty = true; flushSave(); }
+function saveNowIfDirty() {
+  if (dirty && E.project) {
+    dirty = false;
+    flushSave.cancel();
+    E.project.updatedAt = Date.now();
+    return api.saveProject(E.project).catch(() => {});
+  }
+  return Promise.resolve();
 }
 window.addEventListener('beforeunload', () => {
-  if (saveDirty && Episode.project) {
-    Episode.project.updatedAt = Date.now();
-    api.saveProjectNow(Episode.project);
-  }
+  if (dirty && E.project) { E.project.updatedAt = Date.now(); api.saveProjectNow(E.project); }
 });
 
+// ---------- saved work list ----------
 async function refreshProjects() {
   const list = await api.listProjects();
   const ul = $('#projects');
   ul.innerHTML = '';
   if (!list.length) {
-    ul.innerHTML = '<li class="hint" style="cursor:default">Nothing yet</li>';
+    ul.innerHTML = '<li class="empty-li">Episodes you open are saved here automatically.</li>';
     return;
   }
   for (const p of list) {
     const li = document.createElement('li');
-    li.className = Episode.project && Episode.project.id === p.id ? 'active' : '';
-    li.innerHTML = `<div class="pname"><div>${escapeHtml(p.name)}</div><div class="pmeta">${p.lines} lines · ${new Date(p.updatedAt).toLocaleDateString()}</div></div><button class="del" title="Delete">✕</button>`;
-    li.onclick = (e) => {
-      if (e.target.classList.contains('del')) return;
-      loadProject(p.id);
-    };
-    li.querySelector('.del').onclick = async () => {
-      if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
-      await api.deleteProject(p.id);
-      if (Episode.project && Episode.project.id === p.id) closeEpisode();
-      refreshProjects();
-    };
+    li.className = E.project && E.project.id === p.id ? 'active' : '';
+    const working = E.job && E.project && E.project.id === p.id;
+    const chip = working ? '<span class="chip">Working…</span>'
+      : p.failed || p.pending ? `<span class="chip">${p.failed ? 'Needs retry' : 'Unfinished'}</span>`
+      : p.lines ? '<span class="chip ok">Ready</span>' : '';
+    li.innerHTML = `<div class="pbody"><div class="pname"></div><div class="pmeta">${chip}<span>${plural(p.lines, 'line')} · ${new Date(p.updatedAt).toLocaleDateString()}</span></div></div>`;
+    $('.pname', li).textContent = p.name;
+    li.title = p.name;
+    li.onclick = () => openProject(p.id);
     ul.appendChild(li);
   }
 }
 
-function closeEpisode() {
-  cancelJob();
-  Episode.project = null;
-  Episode.samples = null;
-  $('#episode').classList.add('hidden');
-  $('#episode-empty').classList.remove('hidden');
-}
-
-function cancelJob() {
-  if (Episode.job) Episode.job.cancelled = true;
-  Episode.job = null;
-  $('#progress').classList.add('hidden');
-}
-
+// ---------- open / close ----------
 const VIDEO_EXT = /\.(mp4|mkv|mov|m4v|webm|avi|ts)$/i;
-function setPlayerSource(file) {
+
+function setMedia(file) {
   const player = $('#player');
-  player.src = file.url; // streamed from disk, never loaded into memory
+  player.onerror = () => {
+    if (VIDEO_EXT.test(file.name)) toast('This video format cannot be shown here, but its sound is still translated.', { ms: 7000 });
+  };
+  player.src = file.url; // streamed from disk
   player.classList.toggle('audio-only', !VIDEO_EXT.test(file.name));
   player.classList.remove('hidden');
-  $('#btn-relink').classList.add('hidden');
-  player.onerror = () => {
-    if (VIDEO_EXT.test(file.name)) toast('This video format cannot be shown in the app, but its sound can still be translated.', '', 7000);
-  };
+  $('#media-missing').classList.add('hidden');
+}
+function clearMedia(missing) {
+  const player = $('#player');
+  player.onerror = null;
+  player.removeAttribute('src');
+  player.load();
+  player.classList.add('hidden');
+  $('#media-missing').classList.toggle('hidden', !missing);
 }
 
-/** Get the episode's audio as 16 kHz mono Float32 samples. */
+/** The episode's audio as 16 kHz mono Float32 samples. */
 async function decodeEpisodeAudio(file) {
   const r = await api.decodeAudio(file.path);
   if (r.pcm) {
@@ -235,154 +247,252 @@ async function decodeEpisodeAudio(file) {
   return AudioKit.decodeToMono16k(toArrayBuffer(r.bytes));
 }
 
-async function openEpisodeFile() {
-  if (!settings.sarvamKeySet) {
-    toast('Add your Sarvam AI key first (Settings) — it is needed to understand the Tamil audio.', 'error');
-    showTab('settings');
-    return;
-  }
-  const file = await api.openMedia();
-  if (!file) return;
+function needKeys() {
+  if (settings.sarvamKeySet) return false;
+  showWelcome();
+  return true;
+}
+
+async function startEpisode(file) {
+  if (!file || needKeys()) return;
+  if (E.job && !confirm('An episode is still being translated. Pause it and open this one?')) return;
+  await saveNowIfDirty();
   cancelJob();
+  stopSpeakAll();
   const project = {
-    id: newId(),
-    name: file.name.replace(/\.[^.]+$/, ''),
-    mediaName: file.name,
-    mediaPath: file.path,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    duration: 0,
-    lines: [],
-    status: 'new',
+    id: newId(), name: file.name.replace(/\.[^.]+$/, ''), mediaName: file.name, mediaPath: file.path,
+    createdAt: Date.now(), updatedAt: Date.now(), duration: 0, lines: [],
   };
   showProject(project);
-  setPlayerSource(file);
-  setProgress(0.01, 'Reading the audio from the file…');
+  setMedia(file);
+  api.saveProject(project).then(refreshProjects).catch(() => {}); // appears in Saved work right away
+  const job = beginJob();
+  setProgress({ phase: 'listen', frac: 0.01, text: 'Reading the sound from the file…' });
   let samples;
   try {
     samples = await decodeEpisodeAudio(file);
   } catch (e) {
-    $('#progress').classList.add('hidden');
-    toast('Could not read the sound in this file (' + errMsg(e) + '). Try an .mp4, .mp3 or .wav version of the episode.', 'error', 10000);
+    endJob(job);
+    toast('Could not read the sound in this file. Try an .mp4, .mp3 or .wav version. (' + errMsg(e) + ')', { kind: 'error', ms: 10000 });
     return;
   }
-  Episode.samples = samples;
+  if (job.cancelled) return;
+  E.samples = samples;
   project.duration = samples.length / AudioKit.SR;
   updateMeta();
   saveProject();
-  await runEpisodePipeline(project, samples);
+  await runPipeline(project, samples, job);
+}
+
+async function openProject(id) {
+  if (E.project && E.project.id === id) return;
+  if (E.job && !confirm('An episode is still being translated. Pause it and open another one?')) return;
+  await saveNowIfDirty();
+  cancelJob();
+  stopSpeakAll();
+  const p = await api.loadProject(id);
+  if (!p) return toast('Could not open that episode.', 'error');
+  E.samples = null;
+  showProject(p);
+  const file = p.mediaPath ? await api.relinkMedia(p.mediaPath) : null;
+  if (file) {
+    setMedia(file);
+    decodeEpisodeAudio(file).then((s) => { if (E.project === p) E.samples = s; }).catch(() => {});
+  } else clearMedia(p.mediaName !== 'Live capture');
 }
 
 function showProject(project) {
-  if (saveDirty && Episode.project && Episode.project !== project) {
-    saveDirty = false;
-    api.saveProject(Episode.project).catch(() => {});
-  }
-  Episode.project = project;
+  E.project = project;
+  E.currentId = null;
+  E.busy.clear();
   $('#episode-empty').classList.add('hidden');
   $('#episode').classList.remove('hidden');
   $('#ep-name').value = project.name;
+  $('#search').value = '';
   renderAllLines();
   updateMeta();
   refreshProjects();
 }
 
-async function loadProject(id) {
-  if (Episode.job && !confirm('Stop the current translation and open another episode?')) return;
+function closeEpisode() {
   cancelJob();
-  const p = await api.loadProject(id);
-  if (!p) return toast('Could not open that project', 'error');
-  Episode.samples = null;
-  const player = $('#player');
-  player.onerror = null;
-  player.removeAttribute('src');
-  player.load();
-  player.classList.add('hidden');
-  $('#btn-relink').classList.remove('hidden');
-  showProject(p);
-  const file = p.mediaPath ? await api.relinkMedia(p.mediaPath) : null;
-  if (file) {
-    setPlayerSource(file);
-    decodeEpisodeAudio(file).then((s) => { if (Episode.project === p) Episode.samples = s; }).catch(() => {});
-  }
-  if (p.lines.some((l) => l.kn == null && l.ta)) {
-    toast('Some lines were not translated yet — continuing.');
-    runTranslateOnly(p);
-  }
+  stopSpeakAll();
+  E.project = null;
+  E.samples = null;
+  clearMedia(false);
+  $('#episode').classList.add('hidden');
+  $('#episode-empty').classList.remove('hidden');
+  refreshProjects();
 }
 
-$('#btn-relink').onclick = async () => {
+async function locateMedia() {
   const file = await api.openMedia();
-  if (!file) return;
-  if (Episode.project) { Episode.project.mediaPath = file.path; saveProject(); }
-  setPlayerSource(file);
-  decodeEpisodeAudio(file).then((s) => (Episode.samples = s)).catch(() => {});
-};
+  if (!file || !E.project) return;
+  E.project.mediaPath = file.path;
+  E.project.mediaName = file.name;
+  saveProject();
+  setMedia(file);
+  updateMeta();
+  decodeEpisodeAudio(file).then((s) => (E.samples = s)).catch(() => {});
+}
 
+$('#btn-open').onclick = async () => { if (!needKeys()) startEpisode(await api.openMedia()); };
+$('#btn-open-2').onclick = $('#btn-open').onclick;
+$('#btn-relink').onclick = locateMedia;
+$('#btn-relink-menu').onclick = locateMedia;
 $('#ep-name').addEventListener('input', (e) => {
-  if (!Episode.project) return;
-  Episode.project.name = e.target.value.trim() || 'Untitled episode';
+  if (!E.project) return;
+  E.project.name = e.target.value.trim() || 'Untitled episode';
   saveProject();
 });
+$('#ep-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
+$('#btn-delete-ep').onclick = async () => {
+  if (!E.project || !confirm(`Delete "${E.project.name}"? This cannot be undone.`)) return;
+  const id = E.project.id;
+  dirty = false;
+  flushSave.cancel();
+  closeEpisode();
+  await api.deleteProject(id);
+  refreshProjects();
+};
+
+// drag & drop a file anywhere on the Episodes screen
+(() => {
+  let depth = 0;
+  const ws = $('#workspace');
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
+  ws.addEventListener('dragenter', (e) => { if (e.dataTransfer.types.includes('Files')) { depth++; ws.classList.add('dragging'); } });
+  ws.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; ws.classList.remove('dragging'); } });
+  ws.addEventListener('drop', async (e) => {
+    depth = 0;
+    ws.classList.remove('dragging');
+    const f = e.dataTransfer.files[0];
+    if (!f) return;
+    const file = await api.openPath(api.pathForFile(f));
+    if (!file) return toast('That file is not an audio or video file.', 'error');
+    startEpisode(file);
+  });
+})();
 
 function updateMeta() {
-  const p = Episode.project;
+  const p = E.project;
   if (!p) return;
   const done = p.lines.filter((l) => l.kn).length;
-  $('#ep-meta').textContent = [p.mediaName, p.duration ? fmtTime(p.duration) : '', `${p.lines.length} lines`, p.lines.length ? `${done} in Kannada` : '']
-    .filter(Boolean).join(' · ');
+  $('#ep-meta').textContent = [p.mediaName, p.duration ? fmtTime(p.duration) : '', p.lines.length ? `${done} of ${plural(p.lines.length, 'line')} in Kannada` : '']
+    .filter(Boolean).join('  ·  ');
+  updateBanner();
 }
 
-function setProgress(frac, text) {
-  $('#progress').classList.remove('hidden');
-  $('#progress-fill').style.width = Math.round(Math.min(1, Math.max(0, frac)) * 100) + '%';
-  $('#progress-text').textContent = text;
+// ---------- jobs & progress ----------
+function beginJob() {
+  const job = { cancelled: false };
+  E.job = job;
+  refreshProjects();
+  return job;
+}
+function endJob(job) {
+  if (E.job !== job) return;
+  E.job = null;
+  $('#progress').classList.add('hidden');
+  updateBanner();
+  refreshProjects();
+}
+function cancelJob() {
+  if (E.job) {
+    E.job.cancelled = true;
+    (E.job.pokes || []).forEach((f) => f()); // let waiting loops finish
+  }
+  E.job = null;
+  E.busy.clear();
+  $('#progress').classList.add('hidden');
+  updateBanner();
 }
 $('#btn-cancel').onclick = () => {
   cancelJob();
-  toast('Stopped. What is done so far is saved.');
+  // lines that were waiting go back to "not yet translated"
+  if (E.project) E.project.lines.forEach((l) => updateLineEl(l));
+  refreshProjects();
+  toast('Paused. Everything done so far is saved.');
 };
 
-// ---------- the pipeline: listen (Sarvam STT) -> translate (Claude) ----------
-const BATCH = 30;
+function setProgress({ phase, frac, text }) {
+  $('#progress').classList.remove('hidden');
+  $('#progress-fill').style.width = Math.round(Math.min(1, Math.max(0, frac)) * 100) + '%';
+  $('#progress-text').textContent = text;
+  const order = ['listen', 'write', 'ready'];
+  const at = order.indexOf(phase);
+  order.forEach((ph, i) => {
+    const el = $('#step-' + ph);
+    el.classList.toggle('on', i === at);
+    el.classList.toggle('done', i < at);
+  });
+}
 
-async function runEpisodePipeline(project, samples) {
-  const job = { cancelled: false };
-  Episode.job = job;
+function updateBanner() {
+  const p = E.project;
+  const b = $('#banner');
+  if (!p || E.job) return b.classList.add('hidden');
+  const failed = p.lines.filter((l) => l.error).length;
+  const pending = p.lines.filter((l) => l.kn == null && l.ta).length;
+  if (!failed && !pending) return b.classList.add('hidden');
+  b.classList.remove('hidden');
+  if (failed) {
+    $('#banner-text').textContent = `${plural(failed, 'part')} of the episode could not be heard.`;
+    $('#banner-btn').textContent = 'Try again';
+    $('#banner-btn').onclick = retryFailed;
+  } else {
+    $('#banner-text').textContent = `${plural(pending, 'line')} not yet written in Kannada.`;
+    $('#banner-btn').textContent = 'Continue';
+    $('#banner-btn').onclick = () => translateLines(p.lines.filter((l) => l.kn == null && l.ta));
+  }
+}
+
+// ---------- the pipeline: hear (Sarvam) → write Kannada (Claude) ----------
+const FIRST_BATCH = 10; // small first batch so Kannada shows up quickly
+const BATCH = 30;
+const STT_WORKERS = 4;
+const TRANSLATE_WORKERS = 2;
+
+async function runPipeline(project, samples, job) {
   const sr = AudioKit.SR;
   const chunks = AudioKit.segmentBySilence(samples, sr).map((c, i) => ({ ...c, i, s0: c.start / sr, s1: c.end / sr }));
   const results = new Array(chunks.length);
-  let next = 0, transcribed = 0, sttDone = false, fatal = null, failed = 0;
-  let lineNo = project.lines.length;
-  let wake = null;
-  const poke = () => { if (wake) { const w = wake; wake = null; w(); } };
+  const st = { next: 0, heard: 0, sttDone: false, fatal: null, failed: 0, lineNo: project.lines.length };
 
-  project.status = 'working';
   const report = () => {
-    const tr = project.lines.filter((l) => l.kn != null).length;
-    const tot = project.lines.length;
-    const f = 0.65 * (transcribed / chunks.length) + 0.35 * (tot ? tr / tot : 0) * (transcribed / chunks.length);
-    setProgress(f, `Listening to the Tamil audio: ${transcribed}/${chunks.length} parts · Kannada lines ready: ${tr}/${tot}`);
+    if (job.cancelled) return;
+    const tot = project.lines.filter((l) => l.ta).length;
+    const ready = project.lines.filter((l) => l.kn != null && l.ta).length;
+    if (!st.sttDone) {
+      setProgress({ phase: 'listen', frac: 0.6 * (st.heard / chunks.length) + 0.4 * (tot ? ready / tot : 0) * (st.heard / chunks.length),
+        text: `Heard ${st.heard} of ${chunks.length} parts · ${ready} lines in Kannada` });
+    } else {
+      setProgress({ phase: 'write', frac: 0.6 + 0.4 * (tot ? ready / tot : 1), text: `${ready} of ${tot} lines in Kannada` });
+    }
   };
   report();
 
-  // Hand results to the page in the original order.
+  const translator = startTranslator(project, job, () => st.sttDone, report);
+
+  // hand lines to the page in episode order
   const emit = () => {
-    while (next < chunks.length && results[next] !== undefined) {
-      for (const seg of results[next]) {
-        const line = { id: 'L' + ++lineNo, start: seg.start, end: seg.end, ta: seg.ta, kn: seg.ta ? null : '', gender: 'unknown', note: '', chunk: [chunks[next].s0, chunks[next].s1] };
+    while (st.next < chunks.length && results[st.next] !== undefined) {
+      const c = chunks[st.next];
+      for (const seg of results[st.next]) {
+        const line = { id: 'L' + ++st.lineNo, start: seg.start, end: seg.end, ta: seg.ta, kn: seg.ta ? null : '', gender: 'unknown', note: '', chunk: [c.s0, c.s1] };
         if (seg.error) line.error = seg.error;
         project.lines.push(line);
         addLineEl(line);
       }
-      next++;
+      st.next++;
     }
     updateMeta();
     saveProject();
-    poke();
+    translator.poke();
   };
 
-  const sttOne = async (c) => {
+  const hear = async (c) => {
     if (!c.speech) return [];
     const wav = AudioKit.encodeWav(AudioKit.normalize(samples.subarray(c.start, c.end)), sr);
     const r = await api.transcribe(wav, true);
@@ -394,167 +504,272 @@ async function runEpisodePipeline(project, samples) {
 
   const queue = chunks.slice();
   const worker = async () => {
-    while (queue.length && !job.cancelled && !fatal) {
+    while (queue.length && !job.cancelled && !st.fatal) {
       const c = queue.shift();
       try {
-        results[c.i] = await sttOne(c);
+        results[c.i] = await hear(c);
       } catch (e) {
         const m = errMsg(e);
-        if (/key|401|403/i.test(m)) fatal = m;
-        failed++;
+        if (/key|401|403/i.test(m)) st.fatal = m;
+        st.failed++;
         results[c.i] = [{ ta: '', start: c.s0, end: c.s1, error: m }];
       }
-      transcribed++;
+      st.heard++;
       if (!job.cancelled) { emit(); report(); }
     }
   };
-
-  const translateLoop = async () => {
-    for (;;) {
-      if (job.cancelled) return;
-      const pending = project.lines.filter((l) => l.kn == null);
-      if (pending.length >= BATCH || (sttDone && pending.length)) {
-        await translateBatch(project, pending.slice(0, BATCH), job);
-        report();
-        continue;
-      }
-      if (sttDone) return;
-      await new Promise((r) => (wake = r));
-    }
-  };
-
-  const tl = translateLoop().catch((e) => {
-    if (!job.cancelled) toast('Translation stopped: ' + errMsg(e), 'error', 9000);
-  });
-  await Promise.all([worker(), worker(), worker(), worker()]);
-  sttDone = true;
-  poke();
-  await tl;
-
+  await Promise.all(Array.from({ length: STT_WORKERS }, worker));
+  if (st.fatal) {
+    // the rest of the episode could not be heard: keep it as retry-able parts
+    for (const c of queue) results[c.i] = [{ ta: '', start: c.s0, end: c.s1, error: st.fatal }];
+    if (!job.cancelled) emit();
+  }
+  st.sttDone = true;
+  translator.poke();
+  const tErr = await translator.done;
   if (job.cancelled) return;
-  Episode.job = null;
-  project.status = 'done';
+
+  endJob(job);
   saveProject();
-  $('#progress').classList.add('hidden');
-  if (fatal) toast(fatal, 'error', 10000);
-  else if (failed) toast(`${failed} part(s) could not be heard — use ↻ on the red lines to retry.`, 'error', 8000);
-  else toast('Done! The whole episode is in Kannada. Click 🔊 on any line, or "Speak all".');
+  if (st.fatal) toast(st.fatal, { kind: 'error', ms: 10000, action: 'Open settings', onAction: () => showTab('settings') });
+  else if (tErr) toast('Translation paused: ' + tErr, { kind: 'error', ms: 10000, action: 'Continue', onAction: () => $('#banner-btn').click() });
+  else if (st.failed) { /* the banner above the video explains it and offers "Try again" */ }
+  else toast('Done — the whole episode is in Kannada.', { action: 'Listen', onAction: () => $('#btn-speak-all').click() });
 }
 
-async function runTranslateOnly(project, lines) {
-  const job = { cancelled: false };
-  Episode.job = job;
-  const todo = lines || project.lines.filter((l) => l.kn == null);
-  let done = 0;
-  try {
-    for (let i = 0; i < todo.length && !job.cancelled; i += BATCH) {
-      setProgress(done / todo.length, `Writing Kannada: ${done}/${todo.length} lines`);
-      const b = todo.slice(i, i + BATCH);
-      await translateBatch(project, b, job);
-      done += b.length;
+/**
+ * Translates waiting lines in batches, up to TRANSLATE_WORKERS at a time.
+ * Stops at the first error (lines stay "not yet in Kannada" and can be continued).
+ */
+function startTranslator(project, job, inputDone, onProgress) {
+  let wake = null;
+  let first = true;
+  let error = null;
+  const inflight = new Set();
+  const poke = () => { if (wake) { const w = wake; wake = null; w(); } };
+  if (job) job.pokes = (job.pokes || []).concat(poke);
+  const done = (async () => {
+    for (;;) {
+      if (job.cancelled) return null;
+      const waiting = project.lines.filter((l) => l.kn == null && l.ta && !E.busy.has(l.id));
+      const size = first ? FIRST_BATCH : BATCH;
+      if (!error && inflight.size < TRANSLATE_WORKERS && waiting.length && (waiting.length >= size || inputDone())) {
+        first = false;
+        const batch = waiting.slice(0, size);
+        const p = translateBatch(project, batch, job)
+          .catch((e) => { error = error || errMsg(e); })
+          .finally(() => { inflight.delete(p); onProgress(); poke(); });
+        inflight.add(p);
+        continue;
+      }
+      if ((error || (inputDone() && !waiting.length)) && !inflight.size) return error;
+      await new Promise((r) => (wake = r));
     }
-  } catch (e) {
-    toast('Translation stopped: ' + errMsg(e), 'error', 9000);
-  }
-  if (Episode.job === job) {
-    Episode.job = null;
-    $('#progress').classList.add('hidden');
-  }
+  })();
+  return { poke, done };
 }
 
 async function translateBatch(project, batch, job) {
-  const firstIdx = project.lines.indexOf(batch[0]);
-  const context = project.lines
-    .slice(Math.max(0, firstIdx - 15), firstIdx)
-    .filter((l) => l.kn)
-    .map((l) => ({ ta: l.ta, kn: l.kn }));
-  const res = await api.translate(batch.map((l) => ({ id: l.id, ta: l.ta })), context, false);
-  if (job && job.cancelled) return;
-  if (res.warning) toast(res.warning, 'error', 7000);
-  const byId = new Map(res.lines.map((r) => [r.id, r]));
-  for (const l of batch) {
-    const r = byId.get(l.id);
-    if (!r) continue;
-    l.kn = r.kn;
-    l.gender = r.gender || 'unknown';
-    l.note = r.note || '';
-    l.engine = res.engine;
-    l.edited = false;
-    updateLineEl(l);
+  batch.forEach((l) => { E.busy.add(l.id); updateLineEl(l); });
+  try {
+    const firstIdx = project.lines.indexOf(batch[0]);
+    const context = project.lines.slice(Math.max(0, firstIdx - 15), firstIdx).filter((l) => l.ta).map((l) => ({ ta: l.ta, kn: l.kn || '' }));
+    const res = await api.translate(batch.map((l) => ({ id: l.id, ta: l.ta })), context, false);
+    if ((job && job.cancelled) || E.project !== project) return;
+    if (res.warning) toast(res.warning, { kind: 'error', ms: 7000 });
+    const byId = new Map(res.lines.map((r) => [r.id, r]));
+    for (const l of batch) {
+      const r = byId.get(l.id);
+      if (!r) continue;
+      Object.assign(l, { kn: r.kn, gender: r.gender || 'unknown', note: r.note || '', edited: false });
+    }
+    updateMeta();
+    saveProject();
+  } finally {
+    batch.forEach((l) => { E.busy.delete(l.id); updateLineEl(l); });
   }
-  updateMeta();
-  saveProject();
 }
 
-// ---------- line list ----------
+/** Translate a given set of lines (Continue, re-translate all). */
+async function translateLines(lines) {
+  const p = E.project;
+  if (!p || E.job || !lines.length) return;
+  const job = beginJob();
+  updateBanner();
+  const ids = new Set(lines.map((l) => l.id));
+  lines.forEach((l) => { l.kn = null; updateLineEl(l); });
+  const report = () => {
+    const ready = p.lines.filter((l) => ids.has(l.id) && l.kn != null).length;
+    setProgress({ phase: 'write', frac: ready / ids.size, text: `${ready} of ${ids.size} lines in Kannada` });
+  };
+  report();
+  const tErr = await startTranslator(p, job, () => true, report).done;
+  if (job.cancelled) return;
+  endJob(job);
+  if (tErr) toast('Translation paused: ' + tErr, { kind: 'error', ms: 10000 });
+  else toast('Kannada updated.');
+}
+
+async function retryFailed() {
+  const p = E.project;
+  if (!p || E.job) return;
+  if (!E.samples) {
+    toast('The episode file is needed to listen again.', { action: 'Locate file', onAction: locateMedia });
+    return;
+  }
+  const failed = p.lines.filter((l) => l.error);
+  const job = beginJob();
+  let n = 0;
+  for (const l of failed) {
+    if (job.cancelled) return;
+    setProgress({ phase: 'listen', frac: n++ / failed.length, text: `Listening again: ${n} of ${failed.length}` });
+    await reHear(l);
+  }
+  endJob(job);
+  const waiting = p.lines.filter((l) => l.kn == null && l.ta);
+  if (waiting.length) translateLines(waiting);
+}
+
+/** Listen to a failed part again; it may come back as several lines. */
+async function reHear(line) {
+  const p = E.project;
+  const [s0, s1] = line.chunk;
+  const sr = AudioKit.SR;
+  try {
+    const wav = AudioKit.encodeWav(AudioKit.normalize(E.samples.subarray(Math.floor(s0 * sr), Math.floor(s1 * sr))), sr);
+    const r = await api.transcribe(wav, true);
+    const segs = r.segments && r.segments.length
+      ? r.segments.map((s) => ({ ta: s.text, start: s0 + s.start, end: s0 + Math.max(s.end, s.start + 0.5) }))
+      : r.transcript ? splitTimed(r.transcript, s0, s1) : [];
+    const idx = p.lines.indexOf(line);
+    const repl = segs.map((s, i) => ({ id: line.id + (i ? '-' + i : ''), start: s.start, end: s.end, ta: s.ta, kn: null, gender: 'unknown', note: '', chunk: line.chunk }));
+    p.lines.splice(idx, 1, ...repl);
+    renderAllLines();
+    saveProject();
+    return true;
+  } catch (e) {
+    line.error = errMsg(e);
+    updateLineEl(line);
+    return false;
+  }
+}
+
+// ---------- the list of lines ----------
 function renderAllLines() {
   const box = $('#lines');
-  box.innerHTML = '<div class="lines-head"><div>Time</div><div>Tamil (heard)</div><div>Kannada</div><div></div></div>';
-  Episode.els.clear();
-  for (const l of Episode.project.lines) addLineEl(l);
+  box.innerHTML = '<div class="lines-head"><div>Time</div><div>Tamil — as heard</div><div>Kannada</div><div></div></div>';
+  E.els.clear();
+  const frag = document.createDocumentFragment();
+  for (const l of E.project.lines) frag.appendChild(makeLineEl(l));
+  box.appendChild(frag);
   applySearch();
+  updateMeta();
+}
+function addLineEl(line) {
+  $('#lines').appendChild(makeLineEl(line));
+  applySearch(line);
 }
 
-function addLineEl(line) {
+function makeLineEl(line) {
   const el = document.createElement('div');
   el.className = 'line';
   el.dataset.id = line.id;
   el.innerHTML = `
-    <div class="time" title="Play the original Tamil">${fmtTime(line.start)}</div>
+    <button class="time" title="Play the original Tamil"></button>
     <div class="ta"></div>
-    <div><div class="kn" contenteditable="true" spellcheck="false"></div><div class="note"></div></div>
+    <div class="knwrap"><div class="kn" contenteditable="true" spellcheck="false"></div><div class="sub"></div></div>
     <div class="acts">
-      <button class="icon" data-act="orig" title="Play original Tamil">▶</button>
-      <button class="icon" data-act="speak" title="Speak in Kannada">🔊</button>
-      <button class="icon" data-act="redo" title="Translate this line again">↻</button>
+      <button class="act" data-act="orig" title="Play original Tamil">▶</button>
+      <button class="act" data-act="speak" title="Listen in Kannada (K)">🔊</button>
+      <button class="act" data-act="redo" title="Write this line again">↻</button>
     </div>`;
-  $('#lines').appendChild(el);
-  Episode.els.set(line.id, el);
+  E.els.set(line.id, el);
   const kn = $('.kn', el);
+  kn.addEventListener('focus', () => selectLine(line, false));
   kn.addEventListener('input', () => {
-    line.kn = kn.innerText.trim();
+    line.kn = kn.innerText.replace(/\s*\n\s*/g, ' ').trim();
     line.edited = true;
-    kn.classList.add('edited');
+    updateSub(line, el);
     saveProject();
   });
   kn.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kn.blur(); }
+    if (e.key === 'Escape') kn.blur();
   });
-  $('.time', el).onclick = () => playOriginal(line);
-  el.querySelector('[data-act=orig]').onclick = () => playOriginal(line);
-  el.querySelector('[data-act=speak]').onclick = () => speakLine(line);
-  el.querySelector('[data-act=redo]').onclick = () => redoLine(line);
-  updateLineEl(line);
+  // paste as plain text only
+  kn.addEventListener('paste', (e) => {
+    e.preventDefault();
+    document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+  });
+  el.addEventListener('click', (e) => { if (!e.target.closest('.kn, .act')) selectLine(line, true); });
+  $('.time', el).onclick = (e) => { e.stopPropagation(); selectLine(line, false); playOriginal(line); };
+  $('[data-act=orig]', el).onclick = () => playOriginal(line);
+  $('[data-act=speak]', el).onclick = () => speakLine(line);
+  $('[data-act=redo]', el).onclick = () => redoLine(line);
+  updateLineEl(line, el);
+  return el;
 }
 
-function updateLineEl(line) {
-  const el = Episode.els.get(line.id);
+function updateLineEl(line, el = E.els.get(line.id)) {
   if (!el) return;
+  const busy = E.busy.has(line.id);
+  el.classList.toggle('failed', !!line.error);
+  $('.time', el).textContent = fmtTime(line.start);
   const ta = $('.ta', el);
-  if (line.error) {
-    ta.innerHTML = `<span style="color:var(--red)">Could not hear this part — click ↻ to retry.</span>`;
-    ta.title = line.error;
-  } else ta.textContent = line.ta;
+  ta.textContent = line.error ? 'Could not hear this part.' : line.ta;
+  ta.title = line.error || '';
   const kn = $('.kn', el);
   if (document.activeElement !== kn) kn.textContent = line.kn || '';
-  kn.dataset.placeholder = line.error ? '' : line.kn == null ? 'writing Kannada…' : line.ta ? '(no speech)' : '';
-  kn.classList.toggle('edited', !!line.edited);
-  const g = line.gender === 'male' ? '♂ ' : line.gender === 'female' ? '♀ ' : '';
-  $('.note', el).textContent = (g && settings.voiceAuto ? g : '') + (line.note || '');
+  kn.contentEditable = line.error ? 'false' : 'true';
+  kn.classList.toggle('wait', busy);
+  kn.dataset.placeholder = line.error ? 'Click ↻ to listen again' : busy ? 'Writing Kannada…' : line.kn == null ? 'Not yet in Kannada' : line.ta ? '(nothing to translate)' : '';
+  $('[data-act=speak]', el).disabled = !line.kn;
+  $('[data-act=redo]', el).disabled = busy;
+  updateSub(line, el);
 }
 
-async function playOriginal(line) {
+function updateSub(line, el) {
+  const bits = [];
+  if (line.kn && line.gender === 'male') bits.push('<span class="who">♂ man</span>');
+  if (line.kn && line.gender === 'female') bits.push('<span class="who">♀ woman</span>');
+  if (line.edited) bits.push('<span class="edited-tag">✎ edited</span>');
+  if (line.note) bits.push(`<span class="note">${escapeHtml(line.note)}</span>`);
+  $('.sub', el).innerHTML = bits.join('');
+}
+
+function selectLine(line, seek) {
+  if (!line) return;
+  E.currentId = line.id;
+  $$('.line.current').forEach((x) => x.classList.remove('current'));
+  const el = E.els.get(line.id);
+  if (el) el.classList.add('current');
   const player = $('#player');
-  if (!player.src) return toast('Open the episode file (button above the list) to hear the original audio.');
-  Speaker.stop();
+  if (seek && player.src && player.paused) player.currentTime = Math.max(0, line.start - 0.1);
+}
+
+function scrollToLine(line) {
+  const el = line && E.els.get(line.id);
+  if (!el) return;
+  const box = $('#lines');
+  const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+  if (r.top < b.top + 40 || r.bottom > b.bottom - 20) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+function playOriginal(line) {
+  const player = $('#player');
+  if (!player.src) return toast('Link the episode file to hear the original Tamil.', { action: 'Locate file', onAction: locateMedia });
+  stopSpeakAll();
   player.currentTime = Math.max(0, line.start - 0.15);
-  Episode.stopAt = line.end + 0.3;
-  player.play();
+  E.stopAt = line.end + 0.3;
+  E.stopFrom = line.start - 1;
+  player.play().catch(() => {});
 }
 
 async function speakLine(line) {
-  if (!line.kn) return toast('This line has no Kannada text yet.');
+  if (!line.kn) return;
   $('#player').pause();
+  stopSpeakAll();
+  selectLine(line, false);
   markSpeaking(line);
   try {
     await Speaker.say(line.kn, line.gender);
@@ -567,103 +782,92 @@ async function speakLine(line) {
 
 function markSpeaking(line) {
   $$('.line.speaking').forEach((x) => x.classList.remove('speaking'));
-  if (!line) return;
-  const el = Episode.els.get(line.id);
-  if (el) {
-    el.classList.add('speaking');
-    if ($('#follow').checked) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }
+  const el = line && E.els.get(line.id);
+  if (el) el.classList.add('speaking');
 }
 
 async function redoLine(line) {
-  const p = Episode.project;
-  if (line.error || (!line.ta && line.chunk)) {
-    if (!Episode.samples) return toast('Open the episode file first (button above the list) so it can be listened to again.');
-    const el = Episode.els.get(line.id);
-    $('.kn', el).dataset.placeholder = 'listening again…';
-    try {
-      const [s0, s1] = line.chunk;
-      const sr = AudioKit.SR;
-      const wav = AudioKit.encodeWav(AudioKit.normalize(Episode.samples.subarray(Math.floor(s0 * sr), Math.floor(s1 * sr))), sr);
-      const r = await api.transcribe(wav, false);
-      delete line.error;
-      line.ta = r.transcript || '';
-      line.kn = line.ta ? null : '';
-    } catch (e) {
-      line.error = errMsg(e);
-      updateLineEl(line);
-      return toast(errMsg(e), 'error');
-    }
+  if (E.busy.has(line.id)) return;
+  if (line.error) {
+    if (!E.samples) return toast('The episode file is needed to listen again.', { action: 'Locate file', onAction: locateMedia });
+    const el = E.els.get(line.id);
+    $('.kn', el).dataset.placeholder = 'Listening again…';
+    if (!(await reHear(line))) return toast('Still could not hear it: ' + line.error, 'error');
+    const fresh = E.project.lines.filter((l) => l.chunk === line.chunk && l.kn == null && l.ta);
+    if (!fresh.length) return;
+    try { await translateBatch(E.project, fresh, null); } catch (e) { toast(errMsg(e), 'error'); }
+    return;
   }
-  if (!line.ta) { updateLineEl(line); return; }
+  if (!line.ta) return;
+  const before = { kn: line.kn, gender: line.gender, note: line.note, edited: line.edited };
   line.kn = null;
-  line.edited = false;
-  updateLineEl(line);
   try {
-    await translateBatch(p, [line], null);
+    await translateBatch(E.project, [line], null);
   } catch (e) {
-    toast(errMsg(e), 'error');
+    Object.assign(line, before);
     updateLineEl(line);
+    toast('Could not write this line: ' + errMsg(e), 'error');
   }
 }
 
 $('#btn-retranslate-all').onclick = () => {
-  const p = Episode.project;
-  if (!p || Episode.job) return;
-  const lines = p.lines.filter((l) => l.ta && !l.edited);
+  const p = E.project;
+  if (!p) return;
+  if (E.job) return toast('Wait for the current work to finish.');
+  const lines = p.lines.filter((l) => l.ta && !l.edited && !l.error);
   if (!lines.length) return;
-  if (!confirm(`Translate ${lines.length} lines again with the current style, glossary and notes? Lines you edited by hand are kept.`)) return;
-  for (const l of lines) { l.kn = null; updateLineEl(l); }
-  runTranslateOnly(p, lines);
+  const kept = p.lines.filter((l) => l.edited).length;
+  if (!confirm(`Write ${plural(lines.length, 'line')} again with the current style, names and notes?${kept ? `\n\n${plural(kept, 'line')} you edited will be kept.` : ''}`)) return;
+  translateLines(lines);
 };
 
-// follow playback + stop at end of a single line
+// ---------- player follow ----------
+function lineAt(t) {
+  const L = E.project ? E.project.lines : [];
+  let lo = 0, hi = L.length - 1, idx = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (L[mid].start <= t) { idx = mid; lo = mid + 1; } else hi = mid - 1;
+  }
+  return idx >= 0 ? L[idx] : null;
+}
 $('#player').addEventListener('timeupdate', () => {
   const player = $('#player');
   const t = player.currentTime;
-  if (Episode.stopAt != null && t >= Episode.stopAt) {
-    Episode.stopAt = null;
-    player.pause();
+  if (E.stopAt != null) {
+    if (t < E.stopFrom || t > E.stopAt + 1.5) E.stopAt = null; // the user jumped elsewhere
+    else if (t >= E.stopAt) { E.stopAt = null; player.pause(); }
   }
-  const p = Episode.project;
-  if (!p || !p.lines.length) return;
-  let lo = 0, hi = p.lines.length - 1, idx = -1;
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    if (p.lines[mid].start <= t) { idx = mid; lo = mid + 1; } else hi = mid - 1;
-  }
-  const cur = idx >= 0 ? p.lines[idx] : null;
-  if (cur && cur.id !== Episode.currentId) {
-    Episode.currentId = cur.id;
-    $$('.line.current').forEach((x) => x.classList.remove('current'));
-    const el = Episode.els.get(cur.id);
-    if (el) {
-      el.classList.add('current');
-      if ($('#follow').checked && !player.paused) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }
+  if (player.paused) return;
+  const cur = lineAt(t);
+  if (cur && cur.id !== E.currentId && !document.activeElement.closest?.('.kn')) {
+    selectLine(cur, false);
+    if ($('#follow').checked) scrollToLine(cur);
   }
 });
-$('#player').addEventListener('seeking', () => { if (!$('#player').paused) Episode.stopAt = null; });
-$('#player').addEventListener('play', () => { if (Episode.speakingAll) stopSpeakAll(); });
+$('#player').addEventListener('play', () => { if (E.speakingAll) stopSpeakAll(); });
 
-// speak all
+// ---------- listen to everything ----------
 $('#btn-speak-all').onclick = async () => {
-  const p = Episode.project;
+  const p = E.project;
   if (!p) return;
   const lines = p.lines.filter((l) => l.kn);
   if (!lines.length) return toast('No Kannada lines yet.');
-  const startIdx = Math.max(0, lines.findIndex((l) => l.id === Episode.currentId));
+  const cur = p.lines.findIndex((l) => l.id === E.currentId);
+  let start = cur < 0 ? 0 : lines.findIndex((l) => p.lines.indexOf(l) >= cur);
+  if (start < 0) start = 0;
   $('#player').pause();
-  Episode.speakingAll = true;
+  Speaker.stop();
+  E.speakingAll = true;
   $('#btn-stop-speak').classList.remove('hidden');
   $('#btn-speak-all').classList.add('hidden');
   try {
-    for (let i = startIdx; i < lines.length && Episode.speakingAll; i++) {
-      if (lines[i + 1]) Speaker.fetch(lines[i + 1].kn, lines[i + 1].gender).catch(() => {}); // prefetch
+    for (let i = start; i < lines.length && E.speakingAll; i++) {
+      for (const n of lines.slice(i + 1, i + 3)) Speaker.fetch(n.kn, n.gender).catch(() => {}); // prefetch
+      selectLine(lines[i], false);
       markSpeaking(lines[i]);
-      Episode.currentId = lines[i].id;
-      const finished = await Speaker.say(lines[i].kn, lines[i].gender);
-      if (!finished) break;
+      if ($('#follow').checked) scrollToLine(lines[i]);
+      if (!(await Speaker.say(lines[i].kn, lines[i].gender))) break;
     }
   } catch (e) {
     toast('Voice failed: ' + errMsg(e), 'error');
@@ -671,7 +875,8 @@ $('#btn-speak-all').onclick = async () => {
   stopSpeakAll();
 };
 function stopSpeakAll() {
-  Episode.speakingAll = false;
+  if (!E.speakingAll) return;
+  E.speakingAll = false;
   Speaker.stop();
   markSpeaking(null);
   $('#btn-stop-speak').classList.add('hidden');
@@ -679,30 +884,44 @@ function stopSpeakAll() {
 }
 $('#btn-stop-speak').onclick = stopSpeakAll;
 
-// search
-$('#search').addEventListener('input', debounce(applySearch, 150));
-function applySearch() {
+// ---------- search ----------
+$('#search').addEventListener('input', debounce(() => applySearch(), 120));
+function applySearch(only) {
+  if (!E.project) return;
   const q = $('#search').value.trim().toLowerCase();
-  if (!Episode.project) return;
-  for (const l of Episode.project.lines) {
-    const el = Episode.els.get(l.id);
-    if (el) el.classList.toggle('hidden', !!q && !(`${l.ta} ${l.kn || ''}`.toLowerCase().includes(q)));
+  const test = (l) => !q || `${l.ta} ${l.kn || ''}`.toLowerCase().includes(q);
+  if (only) {
+    const el = E.els.get(only.id);
+    if (el) el.classList.toggle('hidden', !test(only));
+  } else {
+    for (const l of E.project.lines) {
+      const el = E.els.get(l.id);
+      if (el) el.classList.toggle('hidden', !test(l));
+    }
   }
+  const n = q ? E.project.lines.filter(test).length : 0;
+  $('#search-count').textContent = q ? `${n} found` : '';
 }
 
+// ---------- text size ----------
+let knSize = store.get('knSize', 18);
+const applyKnSize = () => document.documentElement.style.setProperty('--kn-size', knSize + 'px');
+applyKnSize();
+$('#kn-smaller').onclick = () => { knSize = Math.max(14, knSize - 1); applyKnSize(); store.set('knSize', knSize); };
+$('#kn-bigger').onclick = () => { knSize = Math.min(28, knSize + 1); applyKnSize(); store.set('knSize', knSize); };
+$('#follow').checked = store.get('follow', true);
+$('#follow').onchange = () => store.set('follow', $('#follow').checked);
+
 // ---------- export ----------
-$('#btn-export').onclick = (e) => {
-  e.stopPropagation();
-  $('#export-menu').classList.toggle('hidden');
-};
-document.addEventListener('click', () => $('#export-menu').classList.add('hidden'));
+bindMenu('#btn-export', '#export-menu');
+bindMenu('#btn-more', '#more-menu');
 $$('#export-menu button').forEach((b) => (b.onclick = () => exportAs(b.dataset.export)));
 
 async function exportAs(kind) {
-  const p = Episode.project;
+  const p = E.project;
   if (!p) return;
   const lines = p.lines.filter((l) => l.kn);
-  if (!lines.length) return toast('Nothing to export yet.');
+  if (!lines.length) return toast('Nothing in Kannada yet.');
   const base = p.name.replace(/[\\/:*?"<>|]/g, '_');
   let saved = null;
   try {
@@ -714,38 +933,36 @@ async function exportAs(kind) {
       saved = await api.saveFile({ defaultName: base + ' - Kannada.srt', filters: [{ name: 'Subtitles', extensions: ['srt'] }], data: srt });
     } else if (kind === 'csv') {
       const q = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
-      const csv = '﻿' + ['Time,Tamil,Kannada,Speaker,Note', ...p.lines.map((l) => [fmtTime(l.start), l.ta, l.kn || '', l.gender, l.note || ''].map(q).join(','))].join('\r\n');
+      const who = (g) => (g === 'male' ? 'Man' : g === 'female' ? 'Woman' : '');
+      const csv = '﻿' + ['Time,Tamil,Kannada,Speaker,Note', ...p.lines.filter((l) => l.ta).map((l) => [fmtTime(l.start), l.ta, l.kn || '', who(l.gender), l.note || ''].map(q).join(','))].join('\r\n');
       saved = await api.saveFile({ defaultName: base + ' - Tamil-Kannada.csv', filters: [{ name: 'CSV', extensions: ['csv'] }], data: csv });
     } else if (kind === 'doc') {
-      const rows = p.lines.map((l) => `<tr><td>${fmtTime(l.start)}</td><td class="ta">${escapeHtml(l.ta)}</td><td class="kn">${escapeHtml(l.kn || '')}</td><td>${escapeHtml(l.note || '')}</td></tr>`).join('');
-      const html = `<html><head><meta charset="utf-8"><title>${escapeHtml(p.name)}</title><style>body{font-family:'Nirmala UI','Noto Sans Kannada',sans-serif}td{vertical-align:top;padding:4px 8px;border-bottom:1px solid #ccc}.kn{font-size:14pt}.ta{color:#555}</style></head><body><h1>${escapeHtml(p.name)}</h1><table><tr><th>Time</th><th>Tamil</th><th>Kannada</th><th>Note</th></tr>${rows}</table></body></html>`;
+      const rows = p.lines.filter((l) => l.ta).map((l) => `<tr><td class="t">${fmtTime(l.start)}</td><td class="ta">${escapeHtml(l.ta)}</td><td class="kn">${escapeHtml(l.kn || '')}${l.note ? `<div class="n">${escapeHtml(l.note)}</div>` : ''}</td></tr>`).join('');
+      const html = `<html><head><meta charset="utf-8"><title>${escapeHtml(p.name)}</title><style>body{font-family:'Nirmala UI','Noto Sans Kannada',sans-serif}table{border-collapse:collapse;width:100%}th{text-align:left;border-bottom:2px solid #333;padding:6px 8px}td{vertical-align:top;padding:6px 8px;border-bottom:1px solid #ddd}.t{color:#888;font-size:9pt;white-space:nowrap}.kn{font-size:14pt}.ta{color:#555;font-size:10pt}.n{color:#a66b00;font-size:9pt}</style></head><body><h1>${escapeHtml(p.name)}</h1><table><tr><th>Time</th><th>Tamil</th><th>Kannada</th></tr>${rows}</table></body></html>`;
       saved = await api.saveFile({ defaultName: base + ' - script.doc', filters: [{ name: 'Word document', extensions: ['doc'] }], data: html });
     } else if (kind === 'wav' || kind === 'dub') {
       saved = await exportVoice(p, lines, kind === 'dub', base);
     }
   } catch (e) {
-    $('#progress').classList.add('hidden');
+    if (E.job && E.job.export) endJob(E.job);
     return toast('Export failed: ' + errMsg(e), 'error');
   }
-  if (saved) toast('Saved: ' + saved);
+  if (saved) toast('Saved ' + saved.split(/[\\/]/).pop(), { action: 'Show', onAction: () => api.reveal(saved) });
 }
 
 async function exportVoice(p, lines, timed, base) {
-  if (Episode.job) return toast('Wait for the translation to finish first.');
-  const job = { cancelled: false };
-  Episode.job = job;
+  if (E.job) { toast('Wait for the current work to finish.'); return null; }
+  const job = beginJob();
+  job.export = true;
   const all = [];
-  try {
-    for (let i = 0; i < lines.length; i++) {
-      if (job.cancelled) return null;
-      setProgress(i / lines.length, `Recording Kannada voice: ${i}/${lines.length} lines`);
-      const bufs = await Speaker.fetch(lines[i].kn, lines[i].gender);
-      all.push({ line: lines[i], bufs });
-    }
-  } finally {
-    if (Episode.job === job) Episode.job = null;
+  for (let i = 0; i < lines.length; i++) {
+    if (job.cancelled) return null;
+    setProgress({ phase: 'write', frac: i / lines.length, text: `Recording Kannada voice: ${i} of ${lines.length}` });
+    // keep a few requests in flight for speed
+    for (const n of lines.slice(i + 1, i + 4)) Speaker.fetch(n.kn, n.gender).catch(() => {});
+    all.push({ line: lines[i], bufs: await Speaker.fetch(lines[i].kn, lines[i].gender) });
   }
-  setProgress(1, 'Putting the audio together…');
+  setProgress({ phase: 'ready', frac: 1, text: 'Putting the audio together…' });
   const RATE = 24000;
   const ctx = new AudioContext({ sampleRate: RATE });
   let out;
@@ -754,18 +971,16 @@ async function exportVoice(p, lines, timed, base) {
     for (const { line, bufs } of all) {
       const parts = [];
       for (const b of bufs) parts.push((await ctx.decodeAudioData(b.slice(0))).getChannelData(0));
-      const len = parts.reduce((n, x) => n + x.length, 0);
-      const merged = new Float32Array(len);
+      const merged = new Float32Array(parts.reduce((n, x) => n + x.length, 0));
       let o = 0;
       for (const x of parts) { merged.set(x, o); o += x.length; }
       decoded.push({ line, data: merged });
     }
     const gap = Math.round(0.35 * RATE);
-    let total = 0;
     const placed = [];
-    let cursor = 0;
+    let cursor = 0, total = 0;
     for (const d of decoded) {
-      // timed: start each line where it was spoken in the episode (never overlapping)
+      // timed: start each line where it was said in the episode (never overlapping)
       const at = timed ? Math.max(cursor, Math.round(d.line.start * RATE)) : cursor;
       placed.push(at);
       cursor = at + d.data.length + (timed ? Math.round(0.1 * RATE) : gap);
@@ -776,73 +991,71 @@ async function exportVoice(p, lines, timed, base) {
     decoded.forEach((d, i) => out.set(d.data, placed[i]));
   } finally {
     ctx.close();
+    endJob(job);
   }
-  $('#progress').classList.add('hidden');
-  const wav = AudioKit.encodeWav(out, RATE);
   return api.saveFile({
     defaultName: base + (timed ? ' - Kannada dub track.wav' : ' - Kannada voice.wav'),
     filters: [{ name: 'WAV audio', extensions: ['wav'] }],
-    data: new Uint8Array(wav),
+    data: new Uint8Array(AudioKit.encodeWav(out, RATE)),
     encoding: 'binary',
   });
 }
 
-$('#btn-open').onclick = openEpisodeFile;
-$('#btn-open-2').onclick = openEpisodeFile;
-
 // ================================================================ LIVE
 const Live = {
-  source: 'system',
-  running: false,
-  stream: null,
-  ctx: null,
-  seg: null,
-  lines: [],
-  t0: 0,
-  translateChain: Promise.resolve(),
-  speakChain: Promise.resolve(),
-  paused: false,
-  n: 0,
+  source: 'system', running: false, stream: null, ctx: null, seg: null,
+  lines: [], t0: 0, offset: 0, n: 0, paused: false,
+  translateChain: Promise.resolve(), speakQueue: [], speaking: false,
 };
+const LIVE_HINT = {
+  system: 'Play the Tamil episode on this laptop (YouTube, Hotstar, Sun NXT, VLC…) and press Start. Kannada appears a few seconds after each line.',
+  mic: 'Play the episode near the microphone, or speak, and press Start. Kannada appears a few seconds after each line.',
+};
+const LIVE_EMPTY = '<div class="live-empty"><div><b>Kannada will appear here</b>as each Tamil line is spoken.</div></div>';
 
-$$('#live-source button').forEach((b) =>
-  b.addEventListener('click', () => {
-    if (Live.running) return toast('Stop listening first to change the source.');
-    Live.source = b.dataset.src;
-    $$('#live-source button').forEach((x) => x.classList.toggle('on', x === b));
-    $('#mic-field').classList.toggle('hidden', Live.source !== 'mic');
-    $('#live-hint').textContent = Live.source === 'mic'
-      ? 'Speak or play the Tamil episode near the microphone and press Start. Each line appears in Kannada a few seconds after it is spoken. Use headphones if "Speak Kannada aloud" is on.'
-      : 'Play the Tamil episode (YouTube, Hotstar, Sun NXT, VLC…) on this laptop and press Start. Each line appears in Kannada a few seconds after it is spoken. While Kannada is being spoken aloud, listening pauses so the app does not hear itself — use headphones for the best result.';
-    if (Live.source === 'mic') listMics();
-  })
-);
-$('#mic-field').classList.add('hidden');
+function setLiveSource(src) {
+  if (Live.running) return toast('Stop listening first to change the source.');
+  Live.source = src;
+  $$('#live-source button').forEach((x) => { x.classList.toggle('on', x.dataset.src === src); x.setAttribute('aria-checked', x.dataset.src === src); });
+  $('#mic-select').classList.toggle('hidden', src !== 'mic');
+  $('#live-hint').textContent = LIVE_HINT[src] + ($('#live-speak').checked ? ' While Kannada is spoken aloud, listening pauses — headphones work best.' : '');
+  if (src === 'mic') listMics();
+}
+$$('#live-source button').forEach((b) => b.addEventListener('click', () => setLiveSource(b.dataset.src)));
+$('#live-speak').addEventListener('change', () => { store.set('liveSpeak', $('#live-speak').checked); setLiveSource(Live.source); });
 
 async function listMics() {
   try {
     await api.ensureMic();
-    const devs = await navigator.mediaDevices.enumerateDevices();
-    let mics = devs.filter((d) => d.kind === 'audioinput');
+    let mics = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
     if (mics.length && !mics[0].label) {
       const s = await navigator.mediaDevices.getUserMedia({ audio: true });
       s.getTracks().forEach((t) => t.stop());
       mics = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
     }
     const sel = $('#mic-select');
+    const prev = sel.value || store.get('mic', '');
     sel.innerHTML = mics.map((m) => `<option value="${escapeHtml(m.deviceId)}">${escapeHtml(m.label || 'Microphone')}</option>`).join('') || '<option value="">No microphone found</option>';
-  } catch (e) {
-    toast('Microphone access was blocked. Allow it in your system privacy settings.', 'error', 8000);
+    if (mics.some((m) => m.deviceId === prev)) sel.value = prev;
+  } catch {
+    toast('Microphone access is blocked. Allow it in your system privacy settings.', { kind: 'error', ms: 8000 });
   }
+}
+$('#mic-select').onchange = () => store.set('mic', $('#mic-select').value);
+
+function setLiveState(text, mode) {
+  $('#live-state').textContent = text;
+  $('#live-status').className = 'live-status ' + (mode || '');
+}
+function updateLiveCount() {
+  const n = Live.lines.filter((l) => l.kn).length;
+  $('#live-count').textContent = n ? `${plural(n, 'line')} this session` : '';
 }
 
 $('#btn-live').onclick = () => (Live.running ? stopLive() : startLive());
 
 async function startLive() {
-  if (!settings.sarvamKeySet) {
-    toast('Add your Sarvam AI key first (Settings).', 'error');
-    return showTab('settings');
-  }
+  if (needKeys()) return;
   let stream;
   try {
     if (Live.source === 'mic') {
@@ -857,144 +1070,159 @@ async function startLive() {
       if (!stream.getAudioTracks().length) throw new Error('NO_SYSTEM_AUDIO');
     }
   } catch (e) {
-    if (e.message === 'NO_SYSTEM_AUDIO' || Live.source === 'system') {
-      toast('This computer did not allow capturing its own sound. On a Mac: System Settings → Privacy & Security → Screen & System Audio Recording → allow Anuvaada, then restart the app. Or use Microphone mode.', 'error', 12000);
-    } else toast('Could not open the microphone: ' + errMsg(e), 'error', 8000);
+    if (Live.source === 'system') {
+      toast('This computer did not allow capturing its own sound. On a Mac: System Settings → Privacy & Security → Screen & System Audio Recording → allow Anuvaada, then restart it. Or use the Microphone.', { kind: 'error', ms: 14000, action: 'Use microphone', onAction: () => setLiveSource('mic') });
+    } else toast('Could not open the microphone: ' + errMsg(e), { kind: 'error', ms: 8000 });
     return;
   }
-
-  const ctx = new AudioContext({ sampleRate: AudioKit.SR });
-  await ctx.audioWorklet.addModule('capture-worklet.js');
-  const src = ctx.createMediaStreamSource(stream);
-  const node = new AudioWorkletNode(ctx, 'capture-processor');
-  src.connect(node);
-  node.connect(ctx.destination); // outputs silence; keeps the worklet running
-  Live.seg = new AudioKit.LiveSegmenter(onLiveChunk);
-  node.port.onmessage = (e) => {
-    if (Live.paused) return;
-    Live.seg.push(e.data);
-    const pct = Math.max(0, Math.min(100, (Live.seg.level + 60) * 1.8));
-    $('#meter').style.width = pct + '%';
-  };
-  stream.getAudioTracks()[0].addEventListener('ended', () => Live.running && stopLive());
-  Object.assign(Live, { running: true, stream, ctx, t0: performance.now() });
+  try {
+    const ctx = new AudioContext({ sampleRate: AudioKit.SR });
+    await ctx.audioWorklet.addModule('capture-worklet.js');
+    const src = ctx.createMediaStreamSource(stream);
+    const node = new AudioWorkletNode(ctx, 'capture-processor');
+    src.connect(node);
+    node.connect(ctx.destination); // outputs silence; keeps the worklet running
+    Live.seg = new AudioKit.LiveSegmenter(onLiveChunk);
+    node.port.onmessage = (e) => {
+      if (Live.paused || !Live.seg) return; // also ignores samples that arrive just after Stop
+      Live.seg.push(e.data);
+      $('#meter').style.width = Math.max(0, Math.min(100, (Live.seg.level + 60) * 1.8)) + '%';
+    };
+    stream.getAudioTracks()[0].addEventListener('ended', () => Live.running && stopLive());
+    // continue the clock after a previous Stop instead of restarting at 0:00
+    Object.assign(Live, { running: true, stream, ctx, t0: performance.now(), offset: Live.lines.length ? Live.lines[Live.lines.length - 1].end + 1 : 0 });
+  } catch (e) {
+    stream.getTracks().forEach((t) => t.stop());
+    return toast('Could not start listening: ' + errMsg(e), 'error');
+  }
   if (!Live.lines.length) $('#live-feed').innerHTML = '';
-  $('#btn-live').textContent = '■ Stop listening';
+  $('#btn-live').textContent = '■ Stop';
   $('#btn-live').classList.replace('primary', 'danger');
-  setLiveState('Listening…', true);
+  setLiveState('Listening', 'on');
 }
 
 function stopLive() {
-  if (Live.seg) Live.seg.flush();
+  const seg = Live.seg;
+  Live.seg = null;
+  if (seg) seg.flush();
   Live.running = false;
-  Live.stream && Live.stream.getTracks().forEach((t) => t.stop());
-  Live.ctx && Live.ctx.close();
+  Live.paused = false;
+  if (Live.stream) Live.stream.getTracks().forEach((t) => t.stop());
+  if (Live.ctx) Live.ctx.close();
   Live.stream = Live.ctx = null;
+  Live.speakQueue = [];
   $('#meter').style.width = '0';
-  $('#btn-live').textContent = '▶ Start listening';
+  $('#btn-live').textContent = '▶ Start';
   $('#btn-live').classList.replace('danger', 'primary');
-  setLiveState('Not listening', false);
-}
-
-function setLiveState(text, on) {
-  const s = $('#live-state');
-  s.textContent = text;
-  s.classList.toggle('on', !!on);
+  setLiveState('Not listening');
 }
 
 function onLiveChunk(samples) {
-  const t = (performance.now() - Live.t0) / 1000 - samples.length / AudioKit.SR;
-  const line = { id: 'V' + ++Live.n, start: Math.max(0, t), end: Math.max(0, t) + samples.length / AudioKit.SR, ta: null, kn: null, gender: 'unknown' };
+  const dur = samples.length / AudioKit.SR;
+  const start = Math.max(0, Live.offset + (performance.now() - Live.t0) / 1000 - dur);
+  const line = { id: 'V' + ++Live.n, start, end: start + dur, ta: null, kn: null, gender: 'unknown' };
   Live.lines.push(line);
+  const feed = $('#live-feed');
+  const stick = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 120;
   const el = document.createElement('div');
   el.className = 'live-item';
-  el.innerHTML = `<div class="meta">${fmtTime(line.start)}</div><div class="ta">…</div><div class="kn pending">listening…</div>`;
-  const feed = $('#live-feed');
-  const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80;
+  el.innerHTML = `<div class="meta">${fmtTime(start)}</div><div class="ta"></div><div class="kn pending">Listening…</div>`;
   feed.appendChild(el);
-  if (atBottom) feed.scrollTop = feed.scrollHeight;
+  if (stick) feed.scrollTop = feed.scrollHeight;
 
-  const wav = AudioKit.encodeWav(AudioKit.normalize(samples), AudioKit.SR);
-  const stt = api.transcribe(wav, false);
-  const step = Live.translateChain.then(async () => {
+  const heard = api.transcribe(AudioKit.encodeWav(AudioKit.normalize(samples), AudioKit.SR), false);
+  // translate strictly in order, with the previous lines as context
+  Live.translateChain = Live.translateChain.then(async () => {
+    const kn = $('.kn', el);
     let r;
     try {
-      r = await stt;
+      r = await heard;
     } catch (e) {
-      $('.kn', el).textContent = 'Could not hear: ' + errMsg(e);
+      kn.className = 'kn err';
+      kn.textContent = 'Could not hear this part: ' + errMsg(e);
       return;
     }
-    line.ta = r.transcript || '';
+    line.ta = (r.transcript || '').trim();
     if (!line.ta) { el.remove(); Live.lines.splice(Live.lines.indexOf(line), 1); return; }
     $('.ta', el).textContent = line.ta;
-    $('.kn', el).textContent = 'writing Kannada…';
-    const context = Live.lines.filter((l) => l.kn).slice(-10).map((l) => ({ ta: l.ta, kn: l.kn }));
+    kn.textContent = 'Writing Kannada…';
     try {
+      const context = Live.lines.filter((l) => l.kn).slice(-10).map((l) => ({ ta: l.ta, kn: l.kn }));
       const res = await api.translate([{ id: line.id, ta: line.ta }], context, true);
       const out = res.lines[0] || {};
       line.kn = out.kn || '';
       line.gender = out.gender || 'unknown';
-      const knEl = $('.kn', el);
-      knEl.classList.remove('pending');
-      knEl.textContent = line.kn || '(no speech)';
-      if (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 200) feed.scrollTop = feed.scrollHeight;
-      if (line.kn && $('#live-speak').checked) {
-        Live.speakChain = Live.speakChain.then(() => Speaker.say(line.kn, line.gender)).catch((e) => toast('Voice failed: ' + errMsg(e), 'error'));
-      }
+      kn.className = 'kn';
+      kn.textContent = line.kn || '—';
+      if (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 240) feed.scrollTop = feed.scrollHeight;
+      updateLiveCount();
+      if (line.kn && $('#live-speak').checked && Live.running) queueLiveSpeech(line);
     } catch (e) {
-      $('.kn', el).textContent = 'Could not translate: ' + errMsg(e);
+      kn.className = 'kn err';
+      kn.textContent = 'Could not translate: ' + errMsg(e);
     }
-  });
-  Live.translateChain = step.catch(() => {});
+  }).catch(() => {});
 }
 
-// While the app speaks Kannada during Live, don't listen (it would hear itself).
+/** Speak live lines in order; if speech falls behind, skip to the latest lines. */
+function queueLiveSpeech(line) {
+  Live.speakQueue.push(line);
+  if (Live.speakQueue.length > 2) Live.speakQueue.splice(0, Live.speakQueue.length - 2);
+  if (Live.speaking) return;
+  Live.speaking = true;
+  (async () => {
+    while (Live.speakQueue.length) {
+      const l = Live.speakQueue.shift();
+      try { await Speaker.say(l.kn, l.gender); } catch (e) { toast('Voice failed: ' + errMsg(e), 'error'); break; }
+    }
+    Live.speaking = false;
+  })();
+}
+
+// while Kannada is spoken during Live, don't listen (it would hear itself)
 Speaker.onStart = () => {
-  if (Live.running && $('#live-speak').checked) {
-    Live.paused = true;
-    setLiveState('Speaking Kannada…', true);
-  }
+  if (Live.running && $('#live-speak').checked) { Live.paused = true; setLiveState('Speaking Kannada', 'speaking'); }
 };
 Speaker.onEnd = () => {
-  if (Live.paused) {
-    Live.paused = false;
-    Live.seg && Live.seg.reset();
-    if (Live.running) setLiveState('Listening…', true);
-  }
+  if (!Live.paused) return;
+  Live.paused = false;
+  if (Live.seg) Live.seg.reset();
+  if (Live.running) setLiveState('Listening', 'on');
 };
 
 $('#btn-live-clear').onclick = () => {
-  if (Live.lines.length && !confirm('Clear the live transcript?')) return;
+  if (Live.lines.length && !confirm('Clear this live session?')) return;
   Live.lines = [];
-  $('#live-feed').innerHTML = '<div class="live-empty">Kannada lines will appear here as the Tamil dialogue is spoken.</div>';
+  $('#live-feed').innerHTML = LIVE_EMPTY;
+  updateLiveCount();
 };
 
 $('#btn-live-save').onclick = async () => {
   const lines = Live.lines.filter((l) => l.ta);
   if (!lines.length) return toast('Nothing heard yet.');
-  const name = 'Live session ' + new Date().toLocaleString();
+  const name = 'Live — ' + new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   const project = {
-    id: newId(), name, mediaName: 'Live capture', createdAt: Date.now(), updatedAt: Date.now(),
-    duration: lines[lines.length - 1].end, status: 'done',
+    id: newId(), name, mediaName: 'Live capture', createdAt: Date.now(), updatedAt: Date.now(), duration: lines[lines.length - 1].end,
     lines: lines.map((l, i) => ({ id: 'L' + (i + 1), start: l.start, end: l.end, ta: l.ta, kn: l.kn, gender: l.gender, note: '' })),
   };
   await api.saveProject(project);
   await refreshProjects();
-  toast('Saved to Episode → Saved work. You can edit and export it there.');
+  toast('Saved to Episodes.', { action: 'Open', onAction: () => { showTab('episode'); openProject(project.id); } });
 };
 
 // ================================================================ SETTINGS
-const FIELDS = ['sarvamKey', 'anthropicKey', 'kannadaStyle', 'translationEngine', 'glossary', 'storyNotes', 'ttsModel', 'voiceFemale', 'voiceMale', 'voiceAuto', 'pace', 'sttModel'];
+const FIELDS = ['sarvamKey', 'anthropicKey', 'glossary', 'storyNotes', 'translationEngine', 'ttsModel', 'voiceFemale', 'voiceMale', 'voiceAuto', 'pace', 'sttModel'];
 
 function fillVoiceSelects() {
   const model = $('#ttsModel').value;
   const v = VOICES[model] || VOICES['bulbul:v3'];
-  const all = [...v.female.map((x) => [x, '♀']), ...v.male.map((x) => [x, '♂'])];
-  const opts = all.map(([x, g]) => `<option value="${x}">${g} ${x.replace(/_kn_/, ' · ').replace(/_/g, ' ')}</option>`).join('');
+  const name = (x) => x.replace(/_kn_/, ' · ').replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+  const group = (label, list) => `<optgroup label="${label}">${list.map((x) => `<option value="${x}">${name(x)}</option>`).join('')}</optgroup>`;
+  const opts = group('Women', v.female) + group('Men', v.male);
   $('#voiceFemale').innerHTML = opts;
   $('#voiceMale').innerHTML = opts;
   const def = VOICE_DEFAULTS[model];
-  const has = (x) => all.some(([n]) => n === x);
+  const has = (x) => v.female.includes(x) || v.male.includes(x);
   $('#voiceFemale').value = has(settings.voiceFemale) ? settings.voiceFemale : def.female;
   $('#voiceMale').value = has(settings.voiceMale) ? settings.voiceMale : def.male;
 }
@@ -1002,11 +1230,13 @@ function fillVoiceSelects() {
 function loadSettingsForm() {
   for (const f of FIELDS) {
     const el = $('#' + f);
-    if (!el) continue;
     if (el.type === 'checkbox') el.checked = !!settings[f];
     else el.value = settings[f] ?? '';
   }
+  const style = $(`input[name=kannadaStyle][value="${settings.kannadaStyle || 'bengaluru'}"]`);
+  if (style) style.checked = true;
   fillVoiceSelects();
+  $('#voiceMale').disabled = !settings.voiceAuto;
   $('#pace-val').textContent = Number(settings.pace || 1).toFixed(2) + '×';
 }
 
@@ -1014,71 +1244,149 @@ function readSettingsForm() {
   const patch = {};
   for (const f of FIELDS) {
     const el = $('#' + f);
-    if (!el) continue;
     patch[f] = el.type === 'checkbox' ? el.checked : el.type === 'range' ? Number(el.value) : el.value;
   }
+  patch.kannadaStyle = ($('input[name=kannadaStyle]:checked') || {}).value || 'bengaluru';
   return patch;
 }
 
-const autosaveSettings = debounce(async () => {
+async function saveSettingsNow() {
   settings = await api.saveSettings(readSettingsForm());
   renderKeyStatus();
-}, 500);
+}
+const autosaveSettings = debounce(saveSettingsNow, 400);
 
 for (const f of FIELDS) {
   const el = $('#' + f);
-  if (!el) continue;
-  el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', () => {
+  const isKey = f === 'sarvamKey' || f === 'anthropicKey';
+  el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' || isKey ? 'change' : 'input', () => {
     if (f === 'ttsModel') fillVoiceSelects();
+    if (f === 'voiceAuto') $('#voiceMale').disabled = !el.checked;
     if (f === 'pace') $('#pace-val').textContent = Number(el.value).toFixed(2) + '×';
-    if (f === 'sarvamKey' || f === 'anthropicKey') return; // saved by the button / on blur
     autosaveSettings();
   });
 }
-['sarvamKey', 'anthropicKey'].forEach((f) => $('#' + f).addEventListener('change', autosaveSettings));
+$$('input[name=kannadaStyle]').forEach((r) => r.addEventListener('change', autosaveSettings));
+// a key field shows a masked value; clear it on focus so a new key can be pasted
+['sarvamKey', 'anthropicKey'].forEach((f) => {
+  const el = $('#' + f);
+  el.addEventListener('focus', () => { if (el.value.startsWith('••••')) el.select(); });
+});
 
+function keyResult(name, x) {
+  if (x == null) return `<span class="muted">${name}: not set</span>`;
+  return x.ok ? `<span class="ok">✓ ${name} works</span>` : `<span class="bad">✗ ${name}: ${escapeHtml(x.error)}</span>`;
+}
 $('#btn-test').onclick = async () => {
   const out = $('#test-result');
-  out.textContent = 'Testing…';
-  settings = await api.saveSettings(readSettingsForm());
-  loadSettingsForm();
-  renderKeyStatus();
-  const r = await api.testKeys();
-  const part = (name, x) =>
-    x == null ? `<span>${name}: not set</span>` : x.ok ? `<span class="ok">${name} ✓ ${escapeHtml(x.sample || '')}</span>` : `<span class="bad">${name} ✗ ${escapeHtml(x.error)}</span>`;
-  out.innerHTML = part('Sarvam', r.sarvam) + ' &nbsp; ' + part('Claude', r.anthropic);
+  out.textContent = 'Checking…';
+  $('#btn-test').disabled = true;
+  try {
+    await saveSettingsNow();
+    loadSettingsForm();
+    const r = await api.testKeys();
+    out.innerHTML = keyResult('Sarvam', r.sarvam) + keyResult('Claude', r.anthropic);
+  } finally {
+    $('#btn-test').disabled = false;
+  }
 };
 
 $('#btn-preview-voice').onclick = async () => {
-  settings = await api.saveSettings(readSettingsForm());
+  if (needKeys()) return;
+  await saveSettingsNow();
+  const b = $('#btn-preview-voice');
+  b.disabled = true;
   try {
-    await Speaker.say('ನಮಸ್ಕಾರ! ಇದು ನಿಮ್ಮ ಕನ್ನಡ ಧ್ವನಿ. ಹೇಗಿದೆ ಹೇಳಿ?', 'female');
+    await Speaker.say('ನಮಸ್ಕಾರ! ನಾನು ಈ ಧಾರಾವಾಹಿಯ ಕನ್ನಡ ಧ್ವನಿ. ಹೇಗಿದೆ ಹೇಳಿ?', 'female');
     if (settings.voiceAuto) await Speaker.say('ಏನಮ್ಮಾ, ಊಟ ಆಯ್ತಾ? ನಾನು ಸ್ವಲ್ಪ ಹೊತ್ತಲ್ಲಿ ಬರ್ತೀನಿ.', 'male');
   } catch (e) {
-    toast('Voice preview failed: ' + errMsg(e), 'error', 8000);
+    toast('Voice preview failed: ' + errMsg(e), { kind: 'error', ms: 8000 });
+  } finally {
+    b.disabled = false;
   }
 };
+
+// ================================================================ WELCOME (first run)
+function showWelcome() {
+  $('#welcome').classList.remove('hidden');
+  setTimeout(() => $('#w-sarvam').focus(), 50);
+}
+$('#w-go').onclick = async () => {
+  const sk = $('#w-sarvam').value.trim();
+  const ck = $('#w-claude').value.trim();
+  const err = $('#w-error');
+  if (!sk) { err.textContent = 'Please paste your Sarvam AI key.'; return $('#w-sarvam').focus(); }
+  const btn = $('#w-go');
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  err.textContent = '';
+  try {
+    settings = await api.saveSettings({ sarvamKey: sk, anthropicKey: ck });
+    const r = await api.testKeys();
+    if (!r.sarvam || !r.sarvam.ok) {
+      err.textContent = 'Sarvam key did not work: ' + (r.sarvam ? r.sarvam.error : 'missing');
+      return;
+    }
+    if (ck && (!r.anthropic || !r.anthropic.ok)) {
+      err.textContent = 'Claude key did not work: ' + (r.anthropic ? r.anthropic.error : '') + ' — fix it, or clear the box to continue without Claude.';
+      return;
+    }
+    renderKeyStatus();
+    loadSettingsForm();
+    $('#welcome').classList.add('hidden');
+    toast(ck ? 'All set! Open a Tamil episode to begin.' : 'Ready. Add a Claude key later in Settings for the best Kannada.');
+  } catch (e) {
+    err.textContent = errMsg(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Check keys & start';
+  }
+};
+['#w-sarvam', '#w-claude'].forEach((s) => $(s).addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#w-go').click(); }));
+
+// ================================================================ keyboard
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeMenus();
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+  if (!$('#view-episode').classList.contains('active') || !E.project) return;
+  const visible = E.project.lines.filter((l) => !E.els.get(l.id)?.classList.contains('hidden'));
+  const idx = visible.findIndex((l) => l.id === E.currentId);
+  const cur = visible[idx];
+  if (e.code === 'Space') {
+    const p = $('#player');
+    if (!p.src) return;
+    e.preventDefault();
+    E.stopAt = null;
+    p.paused ? p.play().catch(() => {}) : p.pause();
+  } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const n = visible[Math.max(0, Math.min(visible.length - 1, idx + (e.key === 'ArrowDown' ? 1 : -1)))];
+    if (n) { selectLine(n, true); scrollToLine(n); }
+  } else if (e.key.toLowerCase() === 'k' && cur) {
+    speakLine(cur);
+  } else if (e.key.toLowerCase() === 'e' && cur) {
+    e.preventDefault();
+    const kn = $('.kn', E.els.get(cur.id));
+    kn.focus();
+    const r = document.createRange();
+    r.selectNodeContents(kn);
+    r.collapse(false);
+    getSelection().removeAllRanges();
+    getSelection().addRange(r);
+  }
+});
 
 // ================================================================ boot
 (async function boot() {
   settings = await api.getSettings();
   loadSettingsForm();
   renderKeyStatus();
-  refreshProjects();
+  $('#live-speak').checked = store.get('liveSpeak', false);
+  setLiveSource('system');
+  $('#live-feed').innerHTML = LIVE_EMPTY;
+  await refreshProjects();
   const info = await api.appInfo();
   $('#app-version').textContent = `Anuvaada ${info.version}`;
-  if (!settings.sarvamKeySet) {
-    showTab('settings');
-    toast('Welcome! Paste your Sarvam AI key (and Claude key for best Kannada) to begin.', '', 9000);
-  }
+  if (!settings.sarvamKeySet) showWelcome();
 })();
-
-// keyboard: space = play/pause original (when not typing)
-document.addEventListener('keydown', (e) => {
-  if (e.target.closest('input, textarea, select, [contenteditable]')) return;
-  if (e.code === 'Space' && $('#view-episode').classList.contains('active') && $('#player').src) {
-    e.preventDefault();
-    const p = $('#player');
-    p.paused ? p.play() : p.pause();
-  }
-});

@@ -19,7 +19,7 @@ test.after(() => { srv.close(); bad.close(); });
 
 test('Claude path returns Kannada + gender, prompt carries glossary', async () => {
   process.env.ANTHROPIC_BASE_URL = 'http://127.0.0.1:4557';
-  const r = await translator.translateLines({ ...base, anthropicKey: 'k1' }, lines, [{ ta: 'x', kn: 'y' }], { live: false });
+  const r = await translator.translateLines({ ...base, anthropicKey: 'test-claude' }, lines, [{ ta: 'x', kn: 'y' }], { live: false });
   assert.strictEqual(r.engine, 'claude');
   assert.deepStrictEqual(r.lines.map((l) => l.kn), ['ಅಮ್ಮಾ, ನಾನು ಬಂದೆ.', 'ನೀನು ಎಲ್ಲಿಗೆ ಹೋಗಿದ್ದೆ?']);
   assert.strictEqual(r.lines[0].gender, 'male');

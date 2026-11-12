@@ -1,11 +1,12 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, session, desktopCapturer, systemPreferences, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, session, desktopCapturer, systemPreferences, shell, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const settingsStore = require('./settings');
 const sarvam = require('./sarvam');
 const translator = require('./translator');
 const media = require('./media');
+const projects = require('./projects');
 const { pathToFileURL } = require('url');
 
 let win;
@@ -23,7 +24,7 @@ function createWindow() {
     minWidth: 980,
     minHeight: 640,
     title: 'Anuvaada — Tamil → Kannada',
-    backgroundColor: '#14121a',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#131118' : '#f7f4ee',
     icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -34,6 +35,8 @@ function createWindow() {
   });
   win.removeMenu();
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  // Never let a dropped file or link replace the app's page.
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
@@ -92,12 +95,20 @@ function registerIpc() {
       title: 'Choose a Tamil episode (audio or video)',
       properties: ['openFile'],
       filters: [
-        { name: 'Audio / Video', extensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'opus', 'flac', 'webm', 'mp4', 'mkv', 'mov', 'm4v'] },
+        { name: 'Audio / Video', extensions: ['mp4', 'mkv', 'mov', 'm4v', 'avi', 'ts', 'webm', 'mp3', 'wav', 'm4a', 'aac', 'ogg', 'opus', 'flac', 'wma'] },
         { name: 'All files', extensions: ['*'] },
       ],
     });
     if (r.canceled || !r.filePaths[0]) return null;
     const p = r.filePaths[0];
+    openedFiles.add(p);
+    return { path: p, name: path.basename(p), size: fs.statSync(p).size, url: pathToFileURL(p).href };
+  });
+
+  // A file dropped onto the window.
+  const MEDIA_EXT = /\.(mp3|wav|m4a|aac|ogg|opus|flac|webm|mp4|mkv|mov|m4v|avi|ts|wma|amr)$/i;
+  ipcMain.handle('file:open-path', (_e, p) => {
+    if (!p || !MEDIA_EXT.test(p) || !fs.existsSync(p)) return null;
     openedFiles.add(p);
     return { path: p, name: path.basename(p), size: fs.statSync(p).size, url: pathToFileURL(p).href };
   });
@@ -116,7 +127,7 @@ function registerIpc() {
     try {
       return { pcm: await media.extractPcm16k(p) };
     } catch (err) {
-      if (fs.statSync(p).size > 1.5 * 1024 ** 3) throw new Error('Could not read the sound from this file: ' + err.message);
+      if (fs.statSync(p).size > 400 * 1024 ** 2) throw new Error('Could not read the sound from this file: ' + err.message);
       return { bytes: fs.readFileSync(p), ffmpegError: err.message };
     }
   });
@@ -131,49 +142,18 @@ function registerIpc() {
   ipcMain.handle('file:reveal', (_e, p) => shell.showItemInFolder(p));
 
   // Projects (autosaved episode work) live in the app's data folder.
-  const projectsDir = () => {
-    const d = path.join(app.getPath('userData'), 'projects');
-    fs.mkdirSync(d, { recursive: true });
-    return d;
-  };
-  const safeId = (id) => String(id).replace(/[^a-zA-Z0-9_-]/g, '');
-  ipcMain.handle('project:save', (_e, project) => {
-    fs.writeFileSync(path.join(projectsDir(), safeId(project.id) + '.json'), JSON.stringify(project));
-    return true;
-  });
+  ipcMain.handle('project:save', (_e, project) => projects.save(project));
   // Last-moment save when the window is closing (synchronous so nothing is lost).
   ipcMain.on('project:save-sync', (e, project) => {
     try {
-      fs.writeFileSync(path.join(projectsDir(), safeId(project.id) + '.json'), JSON.stringify(project));
-      e.returnValue = true;
+      e.returnValue = projects.save(project);
     } catch {
       e.returnValue = false;
     }
   });
-  ipcMain.handle('project:list', () => {
-    return fs
-      .readdirSync(projectsDir())
-      .filter((f) => f.endsWith('.json'))
-      .map((f) => {
-        try {
-          const p = JSON.parse(fs.readFileSync(path.join(projectsDir(), f), 'utf8'));
-          return { id: p.id, name: p.name, updatedAt: p.updatedAt, lines: (p.lines || []).length };
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean)
-      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-  });
-  ipcMain.handle('project:load', (_e, id) => {
-    const f = path.join(projectsDir(), safeId(id) + '.json');
-    return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null;
-  });
-  ipcMain.handle('project:delete', (_e, id) => {
-    const f = path.join(projectsDir(), safeId(id) + '.json');
-    if (fs.existsSync(f)) fs.unlinkSync(f);
-    return true;
-  });
+  ipcMain.handle('project:list', () => projects.list());
+  ipcMain.handle('project:load', (_e, id) => projects.load(id));
+  ipcMain.handle('project:delete', (_e, id) => projects.remove(id));
 
   ipcMain.handle('mic:ensure', async () => {
     if (process.platform === 'darwin') {
@@ -188,6 +168,7 @@ function registerIpc() {
 
 app.whenReady().then(() => {
   settingsStore.init(app.getPath('userData'));
+  projects.init(app.getPath('userData'));
   setupMediaPermissions();
   registerIpc();
   createWindow();

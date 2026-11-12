@@ -1,5 +1,5 @@
 'use strict';
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('api', {
   translate: (lines, context, live) => ipcRenderer.invoke('translate:lines', { lines, context, live }),
   speak: (text, gender) => ipcRenderer.invoke('tts:speak', { text, gender }),
   openMedia: () => ipcRenderer.invoke('file:open-media'),
+  openPath: (p) => ipcRenderer.invoke('file:open-path', p),
+  pathForFile: (file) => webUtils.getPathForFile(file),
   relinkMedia: (p) => ipcRenderer.invoke('file:relink', p),
   decodeAudio: (p) => ipcRenderer.invoke('file:decode-audio', p),
   saveFile: (opts) => ipcRenderer.invoke('file:save', opts),

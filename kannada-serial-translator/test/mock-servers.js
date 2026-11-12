@@ -1,4 +1,4 @@
-// Fake Sarvam + Anthropic APIs so the whole app can be exercised offline.
+// Fake Sarvam + Anthropic + Kenpath Labs APIs so the whole app can be exercised offline.
 const http = require('http');
 const A = require('../src/renderer/audio.js');
 
@@ -9,9 +9,15 @@ const KANNADA = {
   'கோவிலுக்கு போனேன் மா.': 'ದೇವಸ್ಥಾನಕ್ಕೆ ಹೋಗಿದ್ದೆ ಅಮ್ಮಾ.',
   'சரி, சாப்பிடு.': 'ಸರಿ, ಊಟ ಮಾಡು.',
 };
-const calls = { stt: 0, tts: 0, translate: 0, claude: 0, claudeBodies: [], ttsBodies: [] };
+const calls = { stt: 0, tts: 0, translate: 0, claude: 0, kenpath: 0, claudeBodies: [], ttsBodies: [], kenpathBodies: [] };
 // knobs for tests
-const opts = { failStt: new Set(), claudeDelay: 0, sarvamKey: 'test-sarvam', claudeKey: 'test-claude' };
+const opts = { failStt: new Set(), claudeDelay: 0, sarvamKey: 'test-sarvam', claudeKey: 'test-claude', kenpathKey: 'test-kenpath' };
+
+function toneWav() {
+  const n = 24000 * 0.4, f = new Float32Array(n);
+  for (let k = 0; k < n; k++) f[k] = 0.2 * Math.sin(k / 6);
+  return Buffer.from(A.encodeWav(f, 24000));
+}
 
 function readBody(req) {
   return new Promise((r) => { const c = []; req.on('data', (d) => c.push(d)); req.on('end', () => r(Buffer.concat(c))); });
@@ -44,9 +50,16 @@ function start(port) {
         const p = JSON.parse(body);
         calls.ttsBodies.push(p);
         if (p.language_code !== 'kn-IN' || !p.speaker || !p.text) return json({ error: { message: 'bad tts' } }, 400);
-        const n = 24000 * 0.4, f = new Float32Array(n);
-        for (let k = 0; k < n; k++) f[k] = 0.2 * Math.sin(k / 6);
-        return json({ audios: [Buffer.from(A.encodeWav(f, 24000)).toString('base64')] });
+        return json({ audios: [toneWav().toString('base64')] });
+      }
+      if (req.url === '/v1/audio/speech') {
+        if (req.headers.authorization !== 'Bearer ' + opts.kenpathKey) return json({ detail: { status: 'invalid_api_key', message: 'API key invalid or revoked.' } }, 401);
+        calls.kenpath++;
+        const p = JSON.parse(body);
+        calls.kenpathBodies.push(p);
+        if (!p.input || !String(p.voice).startsWith('sv_') || p.response_format !== 'wav') return json({ detail: { message: 'bad request' } }, 422);
+        res.writeHead(200, { 'content-type': 'audio/wav' });
+        return res.end(toneWav());
       }
       if (req.url.startsWith('/v1/messages')) {
         if (req.headers['x-api-key'] !== opts.claudeKey && req.headers.authorization !== 'Bearer ' + opts.claudeKey) return json({ type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }, 401);

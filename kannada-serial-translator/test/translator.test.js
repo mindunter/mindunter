@@ -25,7 +25,7 @@ test('Claude path returns Kannada + gender, prompt carries glossary', async () =
   assert.strictEqual(r.lines[0].gender, 'male');
   const body = mock.calls.claudeBodies.at(-1);
   assert.match(body.system[0].text, /ಮೀನಾ/);
-  assert.strictEqual(body.model, 'claude-opus-5-5');
+  assert.strictEqual(body.model, 'claude-haiku-5-5');
 });
 
 test('no Claude key -> Sarvam translator', async () => {

@@ -100,7 +100,7 @@ async function viaClaude(settings, lines, context, live) {
   let response;
   try {
     response = await c.messages.parse({
-      model: settings.claudeModel || 'claude-opus-5-5',
+      model: settings.claudeModel || 'claude-haiku-5-5',
       max_tokens: 32000,
       system: [{ type: 'text', text: systemPrompt(settings), cache_control: { type: 'ephemeral' } }],
       output_config: { effort: live ? 'low' : 'medium', format: zodOutputFormat(OutputSchema) },
@@ -144,11 +144,11 @@ async function viaSarvam(settings, lines) {
   return { engine: 'sarvam', lines: out };
 }
 
-async function testKey(key) {
+async function testKey(key, model) {
   try {
     const c = getClient(key);
     const r = await c.messages.create({
-      model: 'claude-opus-5-5',
+      model: model || 'claude-haiku-5-5',
       max_tokens: 2000,
       output_config: { effort: 'low' },
       messages: [{ role: 'user', content: 'Reply with the single Kannada word for "hello".' }],

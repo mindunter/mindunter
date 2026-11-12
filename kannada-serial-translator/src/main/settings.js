@@ -14,23 +14,25 @@ try {
 const DEFAULTS = {
   sarvamKey: '',
   anthropicKey: '',
+  kenpathKey: '',
   // Speech-to-text
   sttModel: 'saaras:v3',
   // Translation
   translationEngine: 'auto', // auto = Claude if key present, else Sarvam
-  claudeModel: 'claude-opus-5-5',
+  claudeModel: 'claude-haiku-5-5',
   kannadaStyle: 'bengaluru', // bengaluru | mysuru | formal | north
   glossary: '', // "Tamil name = Kannada name" one per line
   storyNotes: '',
   // Voice
-  ttsModel: 'bulbul:v3',
-  voiceFemale: 'kavya',
-  voiceMale: 'rahul',
+  ttsModel: 'svara-tts-turbo', // Kenpath Labs Svara; bulbul:* = Sarvam
+  voiceFemale: 'sv_eh86y5gc', // Spoorthi
+  voiceMale: 'sv_msznkuah', // Girish
   voiceAuto: true, // pick male/female voice by who is speaking
   pace: 1.0,
+  settingsVersion: 2,
 };
 
-const SECRET_FIELDS = ['sarvamKey', 'anthropicKey'];
+const SECRET_FIELDS = ['sarvamKey', 'anthropicKey', 'kenpathKey'];
 let file = null;
 let cache = { ...DEFAULTS };
 
@@ -61,12 +63,17 @@ function init(userDataDir) {
     const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
     cache = { ...DEFAULTS, ...raw };
     for (const k of SECRET_FIELDS) cache[k] = decrypt(raw[k]);
+    // v2: Claude Haiku translates and Kenpath Svara speaks by default.
+    if ((raw.settingsVersion || 1) < 2) {
+      for (const k of ['claudeModel', 'ttsModel', 'voiceFemale', 'voiceMale', 'settingsVersion']) cache[k] = DEFAULTS[k];
+    }
   } catch {
     cache = { ...DEFAULTS };
   }
   // Environment variables work too (handy for testing).
   if (!cache.sarvamKey && process.env.SARVAM_API_KEY) cache.sarvamKey = process.env.SARVAM_API_KEY;
   if (!cache.anthropicKey && process.env.ANTHROPIC_API_KEY) cache.anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!cache.kenpathKey && process.env.KENPATH_API_KEY) cache.kenpathKey = process.env.KENPATH_API_KEY;
 }
 
 function persist() {

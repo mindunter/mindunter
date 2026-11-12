@@ -1,4 +1,4 @@
-/* global AudioKit, VOICES, VOICE_DEFAULTS, api */
+/* global AudioKit, VOICES, VOICE_DEFAULTS, VOICE_NAMES, api */
 'use strict';
 // `api` is provided by preload.js (window.api).
 
@@ -79,7 +79,7 @@ $('#keystatus').onclick = () => showTab('settings');
 function renderKeyStatus() {
   const dot = (ok, required) => `<i class="d ${ok ? 'ok' : required ? 'bad' : ''}"></i>`;
   $('#keystatus').innerHTML =
-    `<span class="k">${dot(settings.sarvamKeySet, true)}Sarvam</span><span class="k">${dot(settings.anthropicKeySet, false)}Claude</span>`;
+    `<span class="k">${dot(settings.sarvamKeySet, true)}Sarvam</span><span class="k">${dot(settings.anthropicKeySet, false)}Claude</span><span class="k">${dot(settings.kenpathKeySet, false)}Kenpath</span>`;
   $('#keystatus').title = settings.sarvamKeySet ? 'API keys' : 'Sarvam key missing — click to add';
 }
 
@@ -103,7 +103,7 @@ const Speaker = {
   token: 0,
   onStart: null,
   onEnd: null,
-  sig() { return [settings.ttsModel, settings.voiceFemale, settings.voiceMale, settings.voiceAuto, settings.pace].join('|'); },
+  sig() { return [settings.ttsModel, settings.kenpathKeySet, settings.voiceFemale, settings.voiceMale, settings.voiceAuto, settings.pace].join('|'); },
   fetch(text, gender) {
     const key = this.sig() + '|' + (settings.voiceAuto ? gender : '') + '|' + text;
     if (!this.cache.has(key)) {
@@ -1211,17 +1211,18 @@ $('#btn-live-save').onclick = async () => {
 };
 
 // ================================================================ SETTINGS
-const FIELDS = ['sarvamKey', 'anthropicKey', 'glossary', 'storyNotes', 'translationEngine', 'ttsModel', 'voiceFemale', 'voiceMale', 'voiceAuto', 'pace', 'sttModel'];
+const KEY_FIELDS = ['sarvamKey', 'anthropicKey', 'kenpathKey'];
+const FIELDS = [...KEY_FIELDS, 'glossary', 'storyNotes', 'translationEngine', 'claudeModel', 'ttsModel', 'voiceFemale', 'voiceMale', 'voiceAuto', 'pace', 'sttModel'];
 
 function fillVoiceSelects() {
   const model = $('#ttsModel').value;
-  const v = VOICES[model] || VOICES['bulbul:v3'];
-  const name = (x) => x.replace(/_kn_/, ' · ').replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+  const v = VOICES[model] || VOICES['svara-tts-turbo'];
+  const name = (x) => VOICE_NAMES[x] || x.replace(/_kn_/, ' · ').replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
   const group = (label, list) => `<optgroup label="${label}">${list.map((x) => `<option value="${x}">${name(x)}</option>`).join('')}</optgroup>`;
   const opts = group('Women', v.female) + group('Men', v.male);
   $('#voiceFemale').innerHTML = opts;
   $('#voiceMale').innerHTML = opts;
-  const def = VOICE_DEFAULTS[model];
+  const def = VOICE_DEFAULTS[model] || VOICE_DEFAULTS['svara-tts-turbo'];
   const has = (x) => v.female.includes(x) || v.male.includes(x);
   $('#voiceFemale').value = has(settings.voiceFemale) ? settings.voiceFemale : def.female;
   $('#voiceMale').value = has(settings.voiceMale) ? settings.voiceMale : def.male;
@@ -1258,7 +1259,7 @@ const autosaveSettings = debounce(saveSettingsNow, 400);
 
 for (const f of FIELDS) {
   const el = $('#' + f);
-  const isKey = f === 'sarvamKey' || f === 'anthropicKey';
+  const isKey = KEY_FIELDS.includes(f);
   el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' || isKey ? 'change' : 'input', () => {
     if (f === 'ttsModel') fillVoiceSelects();
     if (f === 'voiceAuto') $('#voiceMale').disabled = !el.checked;
@@ -1268,7 +1269,7 @@ for (const f of FIELDS) {
 }
 $$('input[name=kannadaStyle]').forEach((r) => r.addEventListener('change', autosaveSettings));
 // a key field shows a masked value; clear it on focus so a new key can be pasted
-['sarvamKey', 'anthropicKey'].forEach((f) => {
+KEY_FIELDS.forEach((f) => {
   const el = $('#' + f);
   el.addEventListener('focus', () => { if (el.value.startsWith('••••')) el.select(); });
 });
@@ -1285,7 +1286,7 @@ $('#btn-test').onclick = async () => {
     await saveSettingsNow();
     loadSettingsForm();
     const r = await api.testKeys();
-    out.innerHTML = keyResult('Sarvam', r.sarvam) + keyResult('Claude', r.anthropic);
+    out.innerHTML = keyResult('Sarvam', r.sarvam) + keyResult('Claude', r.anthropic) + keyResult('Kenpath', r.kenpath);
   } finally {
     $('#btn-test').disabled = false;
   }
@@ -1314,6 +1315,7 @@ function showWelcome() {
 $('#w-go').onclick = async () => {
   const sk = $('#w-sarvam').value.trim();
   const ck = $('#w-claude').value.trim();
+  const kk = $('#w-kenpath').value.trim();
   const err = $('#w-error');
   if (!sk) { err.textContent = 'Please paste your Sarvam AI key.'; return $('#w-sarvam').focus(); }
   const btn = $('#w-go');
@@ -1321,7 +1323,7 @@ $('#w-go').onclick = async () => {
   btn.textContent = 'Checking…';
   err.textContent = '';
   try {
-    settings = await api.saveSettings({ sarvamKey: sk, anthropicKey: ck });
+    settings = await api.saveSettings({ sarvamKey: sk, anthropicKey: ck, kenpathKey: kk });
     const r = await api.testKeys();
     if (!r.sarvam || !r.sarvam.ok) {
       err.textContent = 'Sarvam key did not work: ' + (r.sarvam ? r.sarvam.error : 'missing');
@@ -1329,6 +1331,10 @@ $('#w-go').onclick = async () => {
     }
     if (ck && (!r.anthropic || !r.anthropic.ok)) {
       err.textContent = 'Claude key did not work: ' + (r.anthropic ? r.anthropic.error : '') + ' — fix it, or clear the box to continue without Claude.';
+      return;
+    }
+    if (kk && (!r.kenpath || !r.kenpath.ok)) {
+      err.textContent = 'Kenpath Labs key did not work: ' + (r.kenpath ? r.kenpath.error : '') + ' — fix it, or clear the box to use Sarvam voices.';
       return;
     }
     renderKeyStatus();
@@ -1342,7 +1348,7 @@ $('#w-go').onclick = async () => {
     btn.textContent = 'Check keys & start';
   }
 };
-['#w-sarvam', '#w-claude'].forEach((s) => $(s).addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#w-go').click(); }));
+['#w-sarvam', '#w-claude', '#w-kenpath'].forEach((s) => $(s).addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#w-go').click(); }));
 
 // ================================================================ keyboard
 document.addEventListener('keydown', (e) => {

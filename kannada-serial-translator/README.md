@@ -13,20 +13,21 @@ You can use it in two ways:
 
 | Key | Needed? | Used for | Where to get it | Rough cost |
 |---|---|---|---|---|
-| **Sarvam AI** | **Required** | Understanding the Tamil speech (Saaras) and the Kannada voice (Bulbul). It also translates if you have no Claude key. | [dashboard.sarvam.ai](https://dashboard.sarvam.ai), then API Keys | Pay as you go. New accounts get free credits. |
-| **Claude (Anthropic)** | Recommended | Best-quality translation. Claude reads each scene with the lines around it, so tone, honorifics, kinship words and character names stay consistent. It also corrects words the speech recognizer misheard. | [console.anthropic.com](https://console.anthropic.com), then API Keys (add a little credit) | A few rupees per episode |
+| **Sarvam AI** | **Required** | Understanding the Tamil speech (Saaras). It also translates if you have no Claude key, and speaks (Bulbul) if you have no Kenpath Labs key. | [dashboard.sarvam.ai](https://dashboard.sarvam.ai), then API Keys | ₹0.49 per minute of audio, about ₹10 per episode. New accounts get ₹100 of free credit. |
+| **Claude (Anthropic)** | Recommended | Translation. Claude (Haiku 5.5 by default) reads each scene with the lines around it, so tone, honorifics, kinship words and character names stay consistent. It also corrects words the speech recognizer misheard. Sonnet 5.5 or Opus 5.5 can be picked under Settings → Advanced. | [console.anthropic.com](https://console.anthropic.com), then API Keys (add a little credit) | About 3¢ (≈ ₹3) per episode on Haiku |
+| **Kenpath Labs** | Recommended | The Kannada voice (Svara), with four women's and four men's Kannada voices. | [platform.kenpathlabs.com](https://platform.kenpathlabs.com/signup), then API Keys | 100,000 free characters a month, then ₹1 per 1,000 characters |
 
 You paste the keys into **Settings**. They stay on the laptop and are encrypted by Windows or macOS.
 
 ## Install (for the writer)
 
 1. Download the installer:
-   - **Windows:** `Anuvaada-Setup-1.1.0-win-x64.exe`
-   - **Mac:** `Anuvaada-Setup-1.1.0-mac-arm64.dmg` for M1/M2/M3/M4 Macs, or `…-mac-x64.dmg` for older Intel Macs
+   - **Windows:** `Anuvaada-Setup-1.2.0-win-x64.exe`
+   - **Mac:** `Anuvaada-Setup-1.2.0-mac-arm64.dmg` for M1/M2/M3/M4 Macs, or `…-mac-x64.dmg` for older Intel Macs
 2. Install it:
    - **Windows:** double-click the .exe. If a blue "Windows protected your PC" box appears, click **More info → Run anyway**. This appears because the app has no paid code-signing certificate.
    - **Mac:** open the .dmg and drag Anuvaada into Applications. The first time, **right-click the app → Open → Open**.
-3. Open Anuvaada. The welcome screen asks for the two keys and checks them before you start.
+3. Open Anuvaada. The welcome screen asks for the keys and checks them before you start.
 4. Optional: in **Settings → Kannada writing**, pick the speaking style (Bengaluru, Mysuru–Mandya, North Karnataka or Standard). Add the remake's names one per line, for example `மீனா = ಮೀனಾ`, and choose the voices.
 
 ### Using it
@@ -56,7 +57,8 @@ Tamil audio ──► cut at natural pauses (≤25 s) ──► Sarvam Saaras ST
                          └─ fallback: Sarvam Mayura (modern-colloquial)
                                                        │
                                                        ▼
-                         Sarvam Bulbul TTS (kn-IN), male/female voice per line
+                         Kenpath Labs Svara TTS (kn), male/female voice per line
+                         └─ no Kenpath key: Sarvam Bulbul (kn-IN)
 ```
 
 - **Electron** desktop app with a sandboxed window. All network calls are made from the main process, so API keys never reach the web page.
@@ -65,7 +67,7 @@ Tamil audio ──► cut at natural pauses (≤25 s) ──► Sarvam Saaras ST
 - The first translation batch is small (10 lines) so Kannada appears quickly. After that, two batches of 30 run in parallel, each with the previous lines as context.
 - Episodes are saved atomically (written to a temporary file, then renamed) with an in-memory index, so a crash can't corrupt saved work.
 - Live capture runs in an AudioWorklet with an adaptive voice-activity chunker. It cuts after each line, or after at most 12 seconds.
-- Translation model: `claude-opus-5-5`, with structured outputs. Episodes use `effort: medium`; Live uses `effort: low` for speed. If Claude refuses or can't be reached, that batch is translated by Sarvam instead and the app shows a warning.
+- Translation model: `claude-haiku-5-5` by default (Sonnet 5.5 and Opus 5.5 selectable), with structured outputs. Episodes use `effort: medium`; Live uses `effort: low` for speed. If Claude refuses or can't be reached, that batch is translated by Sarvam instead and the app shows a warning.
 
 ## Developer guide
 

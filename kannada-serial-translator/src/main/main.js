@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const settingsStore = require('./settings');
 const sarvam = require('./sarvam');
+const kenpath = require('./kenpath');
 const translator = require('./translator');
 const media = require('./media');
 const projects = require('./projects');
@@ -69,9 +70,12 @@ function registerIpc() {
 
   ipcMain.handle('keys:test', async () => {
     const s = settingsStore.get();
-    const out = { sarvam: null, anthropic: null };
-    if (s.sarvamKey) out.sarvam = await sarvam.testKey(s.sarvamKey);
-    if (s.anthropicKey) out.anthropic = await translator.testKey(s.anthropicKey);
+    const out = { sarvam: null, anthropic: null, kenpath: null };
+    await Promise.all([
+      s.sarvamKey && sarvam.testKey(s.sarvamKey).then((r) => (out.sarvam = r)),
+      s.anthropicKey && translator.testKey(s.anthropicKey, s.claudeModel).then((r) => (out.anthropic = r)),
+      s.kenpathKey && kenpath.testKey(s.kenpathKey).then((r) => (out.kenpath = r)),
+    ]);
     return out;
   });
 
@@ -87,7 +91,11 @@ function registerIpc() {
 
   ipcMain.handle('tts:speak', async (_e, { text, gender }) => {
     const s = settingsStore.get();
-    return sarvam.speak(s, text, gender); // returns ArrayBuffer-able Buffer (wav)
+    // returns ArrayBuffer-able Buffers (wav)
+    if (!kenpath.isKenpathModel(s.ttsModel)) return sarvam.speak(s, text, gender);
+    if (s.kenpathKey || !s.sarvamKey) return kenpath.speak(s, text, gender);
+    // Kenpath voice chosen but no Kenpath key yet: speak with Sarvam's default voices.
+    return sarvam.speak({ ...s, ttsModel: 'bulbul:v3', voiceFemale: 'kavya', voiceMale: 'rahul' }, text, gender);
   });
 
   ipcMain.handle('file:open-media', async () => {

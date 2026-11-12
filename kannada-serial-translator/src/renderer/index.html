@@ -162,12 +162,17 @@
             <div class="field">
               <label for="sarvamKey">Sarvam AI key <span class="tag req">Required</span></label>
               <input id="sarvamKey" type="password" placeholder="Paste your Sarvam key" autocomplete="off" spellcheck="false" />
-              <p class="help">Hears the Tamil audio and speaks the Kannada. Get one at <a href="https://dashboard.sarvam.ai" target="_blank">dashboard.sarvam.ai</a>.</p>
+              <p class="help">Hears the Tamil audio. Get one at <a href="https://dashboard.sarvam.ai" target="_blank">dashboard.sarvam.ai</a>.</p>
             </div>
             <div class="field">
               <label for="anthropicKey">Claude key <span class="tag rec">Recommended</span></label>
               <input id="anthropicKey" type="password" placeholder="Paste your Claude (Anthropic) key" autocomplete="off" spellcheck="false" />
-              <p class="help">Best, scene-aware Kannada dialogue. Get one at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Without it, Sarvam translates.</p>
+              <p class="help">Scene-aware Kannada dialogue (Claude Haiku by default). Get one at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Without it, Sarvam translates.</p>
+            </div>
+            <div class="field">
+              <label for="kenpathKey">Kenpath Labs key <span class="tag rec">Recommended</span></label>
+              <input id="kenpathKey" type="password" placeholder="Paste your Kenpath Labs key" autocomplete="off" spellcheck="false" />
+              <p class="help">Speaks the Kannada with Svara voices (100,000 free characters a month). Get one at <a href="https://platform.kenpathlabs.com/dashboard/keys" target="_blank">platform.kenpathlabs.com</a>. Without it, Sarvam speaks.</p>
             </div>
             <div class="row">
               <button class="btn" id="btn-test">Check keys</button>
@@ -227,11 +232,20 @@
               </select>
             </div>
             <div class="field">
+              <label for="claudeModel">Claude model</label>
+              <select id="claudeModel">
+                <option value="claude-haiku-5-5">Haiku 5.5 — cheapest, about 3¢ an episode (default)</option>
+                <option value="claude-sonnet-5-5">Sonnet 5.5 — more natural, about 50¢ an episode</option>
+                <option value="claude-opus-5-5">Opus 5.5 — best, about $1 an episode</option>
+              </select>
+            </div>
+            <div class="field">
               <label for="ttsModel">Voice model</label>
               <select id="ttsModel">
-                <option value="bulbul:v3">Bulbul v3 — natural (recommended)</option>
-                <option value="bulbul:v4-flash">Bulbul v4 Flash — Kannada persona voices</option>
-                <option value="bulbul:v2">Bulbul v2 — classic</option>
+                <option value="svara-tts-turbo">Kenpath Svara — Kannada voices (recommended)</option>
+                <option value="bulbul:v3">Sarvam Bulbul v3 — natural</option>
+                <option value="bulbul:v4-flash">Sarvam Bulbul v4 Flash — Kannada persona voices</option>
+                <option value="bulbul:v2">Sarvam Bulbul v2 — classic</option>
               </select>
             </div>
             <div class="field">
@@ -253,7 +267,7 @@
     <div class="welcome">
       <div class="welcome-mark">ಅ</div>
       <h1 id="welcome-title">Welcome to Anuvaada</h1>
-      <p class="muted">Tamil serial episodes, written and spoken in natural Kannada. Two keys and you're ready.</p>
+      <p class="muted">Tamil serial episodes, written and spoken in natural Kannada. Three keys and you're ready.</p>
       <div class="field">
         <label for="w-sarvam">1 · Sarvam AI key <span class="tag req">Required</span></label>
         <input id="w-sarvam" type="password" placeholder="Paste key" autocomplete="off" spellcheck="false" />
@@ -263,6 +277,11 @@
         <label for="w-claude">2 · Claude key <span class="tag rec">Recommended</span></label>
         <input id="w-claude" type="password" placeholder="Paste key (you can add it later)" autocomplete="off" spellcheck="false" />
         <p class="help">For the best Kannada. <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API keys.</p>
+      </div>
+      <div class="field">
+        <label for="w-kenpath">3 · Kenpath Labs key <span class="tag rec">Recommended</span></label>
+        <input id="w-kenpath" type="password" placeholder="Paste key (you can add it later)" autocomplete="off" spellcheck="false" />
+        <p class="help">Kannada voices. <a href="https://platform.kenpathlabs.com/signup" target="_blank">platform.kenpathlabs.com</a> → API keys.</p>
       </div>
       <p class="w-error" id="w-error" aria-live="polite"></p>
       <button class="btn primary lg block" id="w-go">Check keys &amp; start</button>

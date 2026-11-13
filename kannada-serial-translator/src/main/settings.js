@@ -32,7 +32,7 @@ const DEFAULTS = {
   // App
   uiLang: 'en', // en | kn
   tutorialDone: false,
-  settingsVersion: 3,
+  settingsVersion: 4,
 };
 const CHEAP_MODEL = 'claude-haiku-5-5';
 
@@ -75,8 +75,10 @@ function init(userDataDir) {
     if ((raw.settingsVersion || 1) < 3) {
       if (cache.kannadaStyle !== 'formal') cache.kannadaStyle = 'bengaluru';
       cache.claudeModel = CHEAP_MODEL;
-      cache.settingsVersion = DEFAULTS.settingsVersion;
     }
+    // v4: the tutorial became a guided tour of the home screen; show it once more.
+    if ((raw.settingsVersion || 1) < 4) cache.tutorialDone = false;
+    cache.settingsVersion = DEFAULTS.settingsVersion;
   } catch {
     cache = { ...DEFAULTS };
   }

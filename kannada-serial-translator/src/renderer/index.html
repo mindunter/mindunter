@@ -310,10 +310,11 @@
   </div>
 
   <!-- first run: tutorial (shown once) -->
-  <div class="overlay tour hidden" id="tour" role="dialog" aria-modal="true" aria-labelledby="tour-title">
-    <div class="tour-card">
+  <div class="tour hidden" id="tour" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <div class="tour-spot" id="tour-spot"></div>
+    <div class="tour-card" id="tour-card">
       <button class="btn small ghost tour-skip" id="tour-skip" data-i18n="tour.skip">Skip</button>
-      <div class="tour-art" id="tour-art"></div>
+      <div class="tour-step" id="tour-step"></div>
       <h2 id="tour-title"></h2>
       <p id="tour-text" class="muted"></p>
       <div class="tour-foot">

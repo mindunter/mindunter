@@ -1464,23 +1464,48 @@ $('#btn-dash-reset').onclick = async () => {
 // ================================================================ tutorial (first open, once)
 const Tour = {
   i: 0,
+  // One step per main control on the home screen; each one is spotlighted.
   steps: [
-    { art: '🎬', title: 'Open a Tamil episode', text: 'Drop a video or audio file, or click New episode. Anuvaada listens, fixes the Tamil, and writes every line in natural Kannada. Your work saves itself.' },
-    { art: '✍️', title: 'Review line by line', text: 'Click any Tamil or Kannada line to edit it. Press Enter on the Tamil to rewrite the Kannada. 🔊 plays the Kannada voice, which switches between a man and a woman with the speaker.' },
-    { art: '📡', title: 'Translate live', text: 'Playing a serial on Sun NXT or YouTube? Open Live, press Start, and the Kannada appears as each line is spoken.' },
-    { art: '📊', title: 'Keys, costs and language', text: 'Settings shows your keys and what each service has used this month. Switch the whole app between English and ಕನ್ನಡ with the EN / ಕ button at the top.' },
+    { el: '#btn-open', title: 'New episode', text: 'Start here. Pick a Tamil episode (video or audio). Anuvaada listens, fixes the Tamil, and writes every line in natural Kannada.' },
+    { el: '#dropzone', title: 'Drop a file', text: 'Or just drag the episode file onto this area. Big mp4 and mkv files work too.' },
+    { el: '.sidebar', title: 'Saved work', text: 'Every episode you open is saved here automatically. Click one to continue where you left off.' },
+    { el: '.tab[data-tab="live"]', title: 'Live', text: 'Watching on Sun NXT or YouTube? Open Live, press Start, and the Kannada appears as each line is spoken.' },
+    { el: '.tab[data-tab="settings"]', title: 'Settings', text: 'Your keys, Kannada style, character names, voices, and a dashboard of what each service has used this month.' },
+    { el: '#lang-btn', title: 'English / ಕನ್ನಡ', text: 'Switch the whole app between English and Kannada.' },
+    { el: '#keystatus', title: 'Key status', text: 'Green means the key is set. Click it to go straight to your keys.' },
   ],
-  open() { this.i = 0; $('#tour').classList.remove('hidden'); this.render(); },
+  open() {
+    showTab('episode'); // steps whose control is hidden (e.g. an episode is open) show the card centred
+    this.i = 0;
+    $('#tour').classList.remove('hidden');
+    this.render();
+  },
   render() {
     const s = this.steps[this.i];
-    const card = $('.tour-card');
+    const card = $('#tour-card');
     card.classList.remove('swap'); void card.offsetWidth; card.classList.add('swap');
-    $('#tour-art').textContent = s.art;
+    $('#tour-step').textContent = `${this.i + 1} / ${this.steps.length}`;
     $('#tour-title').textContent = t(s.title);
     $('#tour-text').textContent = t(s.text);
+    this.place(s);
     $('#tour-dots').innerHTML = this.steps.map((_, j) => `<i class="${j === this.i ? 'on' : ''}"></i>`).join('');
     $('#tour-back').style.visibility = this.i ? 'visible' : 'hidden';
     $('#tour-next').textContent = this.i === this.steps.length - 1 ? t('Get started') : t('Next');
+  },
+  // Spotlight the control and put the card beside it, inside the window.
+  place(s) {
+    const target = $(s.el);
+    const spot = $('#tour-spot'), card = $('#tour-card');
+    if (!target || !target.offsetParent) { spot.style.cssText = 'opacity:0'; card.style.left = card.style.top = ''; card.classList.add('center'); return; }
+    card.classList.remove('center');
+    const r = target.getBoundingClientRect(), pad = 6;
+    Object.assign(spot.style, { opacity: 1, left: r.left - pad + 'px', top: r.top - pad + 'px', width: r.width + pad * 2 + 'px', height: r.height + pad * 2 + 'px' });
+    const cw = card.offsetWidth, ch = card.offsetHeight, gap = 14, W = innerWidth, H = innerHeight;
+    let top = r.bottom + gap, left = r.left + r.width / 2 - cw / 2;
+    if (top + ch > H - 12) top = r.top - ch - gap; // no room below: above
+    if (top < 12) { top = Math.max(12, Math.min(H - ch - 12, r.top + r.height / 2 - ch / 2)); left = r.right + gap; if (left + cw > W - 12) left = r.left - cw - gap; } // beside
+    card.style.left = Math.max(12, Math.min(W - cw - 12, left)) + 'px';
+    card.style.top = Math.max(12, Math.min(H - ch - 12, top)) + 'px';
   },
   async close() {
     $('#tour').classList.add('hidden');
@@ -1491,6 +1516,7 @@ $('#tour-next').onclick = () => (Tour.i < Tour.steps.length - 1 ? (Tour.i++, Tou
 $('#tour-back').onclick = () => { if (Tour.i) { Tour.i--; Tour.render(); } };
 $('#tour-skip').onclick = () => Tour.close();
 $('#btn-tour').onclick = () => Tour.open();
+addEventListener('resize', () => { if (!$('#tour').classList.contains('hidden')) Tour.place(Tour.steps[Tour.i]); });
 document.addEventListener('keydown', (e) => {
   if ($('#tour').classList.contains('hidden')) return;
   if (e.key === 'Escape') Tour.close();

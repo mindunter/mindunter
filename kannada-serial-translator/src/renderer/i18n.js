@@ -182,7 +182,21 @@
     'min': 'ನಿಮಿಷ',
     'Reset this month\'s counters?': 'ಈ ತಿಂಗಳ ಎಣಿಕೆಯನ್ನು ಮರುಹೊಂದಿಸಬೇಕೇ?',
 
-    // tutorial
+    // tutorial (spotlight steps)
+    'New episode': 'ಹೊಸ ಸಂಚಿಕೆ',
+    'Start here. Pick a Tamil episode (video or audio). Anuvaada listens, fixes the Tamil, and writes every line in natural Kannada.': 'ಇಲ್ಲಿಂದ ಶುರು ಮಾಡಿ. ತಮಿಳು ಸಂಚಿಕೆ (ವಿಡಿಯೋ ಅಥವಾ ಆಡಿಯೋ) ಆಯ್ಕೆಮಾಡಿ. Anuvaada ಕೇಳಿ, ತಮಿಳನ್ನು ಸರಿಪಡಿಸಿ, ಪ್ರತಿ ಸಾಲನ್ನೂ ಸಹಜ ಕನ್ನಡದಲ್ಲಿ ಬರೆಯುತ್ತದೆ.',
+    'Drop a file': 'ಫೈಲ್ ಬಿಡಿ',
+    'Or just drag the episode file onto this area. Big mp4 and mkv files work too.': 'ಅಥವಾ ಸಂಚಿಕೆಯ ಫೈಲ್ ಅನ್ನು ಈ ಜಾಗಕ್ಕೆ ಎಳೆದು ಬಿಡಿ. ದೊಡ್ಡ mp4, mkv ಫೈಲ್‌ಗಳೂ ಆಗುತ್ತವೆ.',
+    'Saved work': 'ಉಳಿಸಿದ ಕೆಲಸ',
+    'Every episode you open is saved here automatically. Click one to continue where you left off.': 'ನೀವು ತೆರೆಯುವ ಪ್ರತಿ ಸಂಚಿಕೆಯೂ ಇಲ್ಲಿ ತಾನಾಗಿಯೇ ಉಳಿಯುತ್ತದೆ. ಬಿಟ್ಟಲ್ಲಿಂದ ಮುಂದುವರಿಸಲು ಒಂದನ್ನು ಒತ್ತಿ.',
+    'Live': 'ಲೈವ್',
+    'Watching on Sun NXT or YouTube? Open Live, press Start, and the Kannada appears as each line is spoken.': 'Sun NXT ಅಥವಾ YouTube ನಲ್ಲಿ ನೋಡುತ್ತಿದ್ದೀರಾ? ಲೈವ್ ತೆರೆದು ಶುರು ಒತ್ತಿ, ಪ್ರತಿ ಸಾಲು ಮಾತನಾಡಿದಂತೆ ಕನ್ನಡ ಬರುತ್ತದೆ.',
+    'Settings': 'ಸೆಟ್ಟಿಂಗ್ಸ್',
+    'Your keys, Kannada style, character names, voices, and a dashboard of what each service has used this month.': 'ನಿಮ್ಮ ಕೀಗಳು, ಕನ್ನಡ ಶೈಲಿ, ಪಾತ್ರಗಳ ಹೆಸರುಗಳು, ಧ್ವನಿಗಳು, ಮತ್ತು ಪ್ರತಿ ಸೇವೆ ಈ ತಿಂಗಳು ಎಷ್ಟು ಬಳಸಿದೆ ಎಂಬ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್.',
+    'English / ಕನ್ನಡ': 'English / ಕನ್ನಡ',
+    'Switch the whole app between English and Kannada.': 'ಇಡೀ ಆ್ಯಪ್ ಅನ್ನು English ಮತ್ತು ಕನ್ನಡದ ನಡುವೆ ಬದಲಿಸಿ.',
+    'Key status': 'ಕೀ ಸ್ಥಿತಿ',
+    'Green means the key is set. Click it to go straight to your keys.': 'ಹಸಿರು ಎಂದರೆ ಕೀ ಸೇರಿಸಲಾಗಿದೆ. ನೇರವಾಗಿ ಕೀಗಳಿಗೆ ಹೋಗಲು ಇದನ್ನು ಒತ್ತಿ.',
     'Open a Tamil episode': 'ತಮಿಳು ಸಂಚಿಕೆ ತೆರೆಯಿರಿ',
     'Drop a video or audio file, or click New episode. Anuvaada listens, fixes the Tamil, and writes every line in natural Kannada. Your work saves itself.': 'ವಿಡಿಯೋ ಅಥವಾ ಆಡಿಯೋ ಫೈಲ್ ಬಿಡಿ, ಅಥವಾ ಹೊಸ ಸಂಚಿಕೆ ಒತ್ತಿ. Anuvaada ಕೇಳಿ, ತಮಿಳನ್ನು ಸರಿಪಡಿಸಿ, ಪ್ರತಿ ಸಾಲನ್ನೂ ಸಹಜ ಕನ್ನಡದಲ್ಲಿ ಬರೆಯುತ್ತದೆ. ಕೆಲಸ ತಾನಾಗಿಯೇ ಉಳಿಯುತ್ತದೆ.',
     'Review line by line': 'ಸಾಲು ಸಾಲಾಗಿ ಪರಿಶೀಲಿಸಿ',

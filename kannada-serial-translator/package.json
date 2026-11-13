@@ -1,7 +1,7 @@
 {
   "name": "anuvaada",
   "productName": "Anuvaada",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Tamil serial audio to natural spoken Kannada \u2014 transcribe, translate and speak back, for remake script writers.",
   "main": "src/main/main.js",
   "author": "mindunter",

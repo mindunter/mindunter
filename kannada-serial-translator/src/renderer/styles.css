@@ -473,19 +473,20 @@ html[data-lang="kn"] body { --ui-font: "AV Kannada", "Segoe UI Variable Text", "
 .dash-card .cost { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
 .dash-card footer a { text-decoration: none; font-weight: 600; }
 
-/* tutorial */
-.tour { background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(6px); z-index: 65; }
-.tour-card { position: relative; width: min(460px, 100%); background: var(--surface); border: 1px solid var(--border); border-radius: 22px; padding: 30px 30px 22px; box-shadow: var(--shadow); text-align: center; }
-.tour-card.swap { animation: pop .3s cubic-bezier(.2,1.2,.4,1) both; }
-.tour-skip { position: absolute; top: 12px; right: 12px; }
-.tour-art { width: 76px; height: 76px; margin: 6px auto 18px; border-radius: 22px; display: grid; place-items: center; font-size: 38px; background: radial-gradient(circle at 30% 25%, var(--gold-soft), var(--accent-soft)); border: 1px solid var(--border); }
-.tour-card h2 { font-size: 20px; letter-spacing: -.01em; }
-.tour-card p { margin: 10px 0 24px; line-height: 1.6; font-size: 14px; }
+/* tutorial: spotlight on each home-screen control */
+.tour { position: fixed; inset: 0; z-index: 65; }
+.tour-spot { position: fixed; border-radius: 14px; box-shadow: 0 0 0 9999px rgba(8, 6, 12, .62), 0 0 0 2px var(--gold), 0 0 24px 4px color-mix(in srgb, var(--gold) 45%, transparent); transition: left .35s cubic-bezier(.3,1.2,.5,1), top .35s cubic-bezier(.3,1.2,.5,1), width .35s cubic-bezier(.3,1.2,.5,1), height .35s cubic-bezier(.3,1.2,.5,1), opacity .2s; pointer-events: none; }
+.tour-card { position: fixed; width: min(340px, calc(100vw - 24px)); background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px 18px 14px; box-shadow: var(--shadow); transition: left .35s cubic-bezier(.3,1.2,.5,1), top .35s cubic-bezier(.3,1.2,.5,1); }
+.tour-card.center { left: 50% !important; top: 50% !important; transform: translate(-50%, -50%); }
+.tour-card.swap h2, .tour-card.swap p { animation: rise .3s ease both; }
+.tour-skip { position: absolute; top: 10px; right: 10px; }
+.tour-step { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--accent); margin-bottom: 4px; }
+.tour-card h2 { font-size: 17px; letter-spacing: -.01em; padding-right: 60px; }
+.tour-card p { margin: 8px 0 16px; line-height: 1.6; font-size: 13.5px; }
 .tour-foot { display: flex; align-items: center; gap: 8px; }
-.tour-dots { flex: 1; display: flex; gap: 6px; }
-.tour-dots i { width: 7px; height: 7px; border-radius: 99px; background: var(--surface-3); transition: width .25s, background .25s; }
-.tour-dots i.on { width: 22px; background: var(--accent); }
-
+.tour-dots { flex: 1; display: flex; gap: 5px; }
+.tour-dots i { width: 6px; height: 6px; border-radius: 99px; background: var(--surface-3); transition: width .25s, background .25s; }
+.tour-dots i.on { width: 18px; background: var(--accent); }
 /* motion: the app should feel alive, but never in the way */
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes pop { from { opacity: 0; transform: scale(.96) translateY(4px); } to { opacity: 1; transform: none; } }

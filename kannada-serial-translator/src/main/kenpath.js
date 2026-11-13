@@ -1,5 +1,5 @@
 'use strict';
-// Kenpath Labs (https://kenpathlabs.com) — Svara text-to-speech.
+// Kenpath Labs (https://kenpathlabs.com): Svara text-to-speech.
 //   Text-to-speech  : Kannada text -> Kannada voice  (POST /v1/audio/speech, raw audio back)
 const { splitText } = require('./sarvam');
 

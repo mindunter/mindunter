@@ -29,7 +29,7 @@ function systemPrompt(settings) {
     'Rules:\n',
     '- Translate meaning, emotion and intent, not word-by-word. Replace Tamil idioms, proverbs and jokes with natural Kannada equivalents that land the same way.\n',
     '- Keep the same respect level: நீங்க/நீங்கள் → ನೀವು, நீ → ನೀನು; keep "-ங்க" politeness as "-ರಿ/-ಇ" endings. Map kinship terms the way Kannada families say them (அம்மா→ಅಮ್ಮ, அப்பா→ಅಪ್ಪ, அண்ணா→ಅಣ್ಣ, அக்கா→ಅಕ್ಕ, அண்ணி→ಅತ್ತಿಗೆ, மாமா→ಮಾವ, அத்தை→ಅತ್ತೆ, மாமியார்→ಅತ್ತೆ, தம்பி→ತಮ್ಮ, தங்கச்சி→ತಂಗಿ).\n',
-    '- Use correct Kannada punctuation: full stop, comma, question mark, exclamation mark and "..." for trailing or hesitant speech, so a voice actor can read it with the right pauses and intonation.\n',
+    '- Use correct Kannada punctuation: full stop, comma, question mark, exclamation mark and "..." for trailing or hesitant speech, so a voice actor can read it with the right pauses and intonation. Never use dashes (— or –) as punctuation; use a comma, full stop or "..." instead.\n',
     '- Speech recognition sometimes mishears words, splits or merges words wrongly and drops case endings. Use the surrounding lines to infer what was really said; never translate obvious recognition garbage literally. If a line is pure noise, music or unintelligible, return empty "tamil" and "kannada" strings.\n',
     '- In "tamil", first write the Tamil line as the character most likely really said it: fix misheard words, word breaks, verb and case endings, names from the glossary, and add punctuation. Keep it spoken, colloquial Tamil exactly as in the serial (do not make it formal or literary). If the line was already right, repeat it unchanged. Translate this corrected Tamil.\n',
     '- Keep character names consistent across the episode. Use the glossary below for names and places when given.\n',
@@ -63,6 +63,11 @@ function getClient(key) {
   return client;
 }
 
+/** The app shows no em or en dashes: a dash between words becomes a comma. */
+function noDashes(s) {
+  return String(s || '').replace(/\s*[—–]\s*/g, ', ').replace(/^, |, $/g, '').trim();
+}
+
 function useClaude(settings) {
   if (settings.translationEngine === 'sarvam') return false;
   return !!settings.anthropicKey;
@@ -70,7 +75,7 @@ function useClaude(settings) {
 
 /**
  * lines:   [{ id, ta }]
- * context: [{ ta, kn }]  — the previous few lines, so the scene flows.
+ * context: [{ ta, kn }] : the previous few lines, so the scene flows.
  * returns: { engine, lines: [{ id, ta?, kn, gender, note }], warning? }
  *          ta is set only when Claude corrected the heard Tamil.
  */
@@ -121,7 +126,7 @@ async function viaClaude(settings, lines, context, live) {
       e.fatal = true;
       throw e;
     }
-    if (err instanceof Anthropic.RateLimitError) throw new Error('Claude rate limit reached — try again in a minute.');
+    if (err instanceof Anthropic.RateLimitError) throw new Error('Claude rate limit reached. Try again in a minute.');
     if (err instanceof Anthropic.APIConnectionError) throw new Error('Could not reach Claude. Check the internet connection.');
     throw err;
   }
@@ -132,8 +137,8 @@ async function viaClaude(settings, lines, context, live) {
   const byId = new Map(parsed.lines.map((l) => [String(l.id), l]));
   const out = lines.map((l) => {
     const r = byId.get(String(l.id));
-    const ta = r ? r.tamil.trim() : '';
-    return { id: l.id, ta: ta && ta !== String(l.ta).trim() ? ta : undefined, kn: r ? r.kannada.trim() : '', gender: r ? r.gender : 'unknown', note: r ? r.note.trim() : '' };
+    const ta = r ? noDashes(r.tamil) : '';
+    return { id: l.id, ta: ta && ta !== String(l.ta).trim() ? ta : undefined, kn: r ? noDashes(r.kannada) : '', gender: r ? r.gender : 'unknown', note: r ? noDashes(r.note) : '' };
   });
   return { lines: out, usage: { ...response.usage, model: response.model || settings.claudeModel } };
 }
@@ -144,7 +149,7 @@ async function viaSarvam(settings, lines) {
   let chars = 0;
   for (const l of lines) {
     const ta = String(l.ta || '').trim();
-    const kn = ta ? await sarvam.translate(settings, l.ta) : '';
+    const kn = ta ? noDashes(await sarvam.translate(settings, l.ta)) : '';
     chars += ta.length;
     out.push({ id: l.id, kn, gender: 'unknown', note: '' });
   }

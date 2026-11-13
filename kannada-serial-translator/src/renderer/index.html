@@ -41,7 +41,7 @@
             <h2 data-i18n="ep.dropTitle">Drop a Tamil episode here</h2>
             <p data-i18n="ep.or">or</p>
             <button class="btn primary lg" id="btn-open-2" data-i18n="ep.choose">Choose a file</button>
-            <p class="muted small" data-i18n="ep.formats">Video or audio — mp4, mkv, mp3, wav, m4a…</p>
+            <p class="muted small" data-i18n="ep.formats">Video or audio: mp4, mkv, mp3, wav, m4a…</p>
           </div>
           <ol class="how">
             <li><b data-i18n="how.1">Listen</b><span data-i18n="how.1d">The Tamil dialogue is heard and written down.</span></li>
@@ -64,7 +64,7 @@
                 <button class="btn" id="btn-export" aria-haspopup="menu"><span data-i18n="ep.export">Export</span> ▾</button>
                 <div class="menu hidden" id="export-menu" role="menu">
                   <div class="menu-label" data-i18n="exp.script">Script</div>
-                  <button data-export="doc" data-i18n="exp.doc">Word document — Tamil + Kannada (.doc)</button>
+                  <button data-export="doc" data-i18n="exp.doc">Word document: Tamil + Kannada (.doc)</button>
                   <button data-export="txt" data-i18n="exp.txt">Kannada only (.txt)</button>
                   <button data-export="csv" data-i18n="exp.csv">Excel table (.csv)</button>
                   <button data-export="srt" data-i18n="exp.srt">Subtitles (.srt)</button>
@@ -206,8 +206,8 @@
             <div class="field">
               <label data-i18n="write.style">Speaking style</label>
               <div class="choices" id="style-choices">
-                <label><input type="radio" name="kannadaStyle" value="bengaluru" /><span><b data-i18n="write.casual">Everyday spoken</b><em data-i18n="write.casualD">“ಏನ್ ಮಾಡ್ತಿದ್ದೀಯಾ?” — how most people talk, as in most serials</em></span></label>
-                <label><input type="radio" name="kannadaStyle" value="formal" /><span><b data-i18n="write.formal">Standard</b><em data-i18n="write.formalD">“ನೀವು ಏನು ಮಾಡುತ್ತಿದ್ದೀರಿ?” — clean and formal</em></span></label>
+                <label><input type="radio" name="kannadaStyle" value="bengaluru" /><span><b data-i18n="write.casual">Everyday spoken</b><em data-i18n="write.casualD">“ಏನ್ ಮಾಡ್ತಿದ್ದೀಯಾ?”: how most people talk, as in most serials</em></span></label>
+                <label><input type="radio" name="kannadaStyle" value="formal" /><span><b data-i18n="write.formal">Standard</b><em data-i18n="write.formalD">“ನೀವು ಏನು ಮಾಡುತ್ತಿದ್ದೀರಿ?”: clean and formal</em></span></label>
               </div>
             </div>
             <div class="field">
@@ -244,9 +244,9 @@
             <div class="field">
               <label for="claudeModel" data-i18n="adv.model">Claude model</label>
               <select id="claudeModel">
-                <option value="claude-haiku-5-5">Haiku 5.5 — cheapest, about 3¢ an episode (default)</option>
-                <option value="claude-sonnet-5-5">Sonnet 5.5 — more natural, about 50¢ an episode</option>
-                <option value="claude-opus-5-5">Opus 5.5 — best, about $1 an episode</option>
+                <option value="claude-haiku-5-5">Haiku 5.5: cheapest, about 3¢ an episode (default)</option>
+                <option value="claude-sonnet-5-5">Sonnet 5.5: more natural, about 50¢ an episode</option>
+                <option value="claude-opus-5-5">Opus 5.5: best, about $1 an episode</option>
               </select>
               <p class="help" data-i18n="adv.modelHelp">Stays on Haiku unless you change it here. A new Claude key always starts on Haiku.</p>
             </div>
@@ -260,17 +260,17 @@
             <div class="field">
               <label for="ttsModel" data-i18n="adv.voice">Voice model</label>
               <select id="ttsModel">
-                <option value="svara-tts-turbo">Kenpath Svara — Kannada voices (recommended)</option>
-                <option value="bulbul:v3">Sarvam Bulbul v3 — natural</option>
-                <option value="bulbul:v4-flash">Sarvam Bulbul v4 Flash — Kannada persona voices</option>
-                <option value="bulbul:v2">Sarvam Bulbul v2 — classic</option>
+                <option value="svara-tts-turbo">Kenpath Svara: Kannada voices (recommended)</option>
+                <option value="bulbul:v3">Sarvam Bulbul v3: natural</option>
+                <option value="bulbul:v4-flash">Sarvam Bulbul v4 Flash: Kannada persona voices</option>
+                <option value="bulbul:v2">Sarvam Bulbul v2: classic</option>
               </select>
             </div>
             <div class="field">
               <label for="sttModel" data-i18n="adv.stt">Tamil speech model</label>
               <select id="sttModel">
-                <option value="saaras:v3">Saaras v3 — stable</option>
-                <option value="saaras:v4">Saaras v4 — latest</option>
+                <option value="saaras:v3">Saaras v3: stable</option>
+                <option value="saaras:v4">Saaras v4: latest</option>
               </select>
             </div>
             <div class="row">

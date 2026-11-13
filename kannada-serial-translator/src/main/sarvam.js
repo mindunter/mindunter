@@ -1,5 +1,5 @@
 'use strict';
-// Sarvam AI (https://sarvam.ai) — Indian-language speech models.
+// Sarvam AI (https://sarvam.ai): Indian-language speech models.
 //   Speech-to-text  : Tamil audio -> Tamil text      (POST /speech-to-text, <30 s per request)
 //   Translate       : Tamil text  -> Kannada text    (POST /translate, fallback engine)
 //   Text-to-speech  : Kannada text -> Kannada voice  (POST /text-to-speech)

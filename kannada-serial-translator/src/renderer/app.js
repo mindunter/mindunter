@@ -81,7 +81,7 @@ function renderKeyStatus() {
   const dot = (ok, required) => `<i class="d ${ok ? 'ok' : required ? 'bad' : ''}"></i>`;
   $('#keystatus').innerHTML =
     `<span class="k">${dot(settings.sarvamKeySet, true)}Sarvam</span><span class="k">${dot(settings.anthropicKeySet, false)}Claude</span><span class="k">${dot(settings.kenpathKeySet, false)}Kenpath</span>`;
-  $('#keystatus').title = settings.sarvamKeySet ? 'API keys' : 'Sarvam key missing — click to add';
+  $('#keystatus').title = settings.sarvamKeySet ? 'API keys' : 'Sarvam key missing. Click to add.';
 }
 
 // menus: one open at a time, close on outside click / Escape
@@ -535,7 +535,7 @@ async function runPipeline(project, samples, job) {
   if (st.fatal) toast(st.fatal, { kind: 'error', ms: 10000, action: 'Open settings', onAction: () => showTab('settings') });
   else if (tErr) toast('Translation paused: ' + tErr, { kind: 'error', ms: 10000, action: 'Continue', onAction: () => $('#banner-btn').click() });
   else if (st.failed) { /* the banner above the video explains it and offers "Try again" */ }
-  else toast('Done — the whole episode is in Kannada.', { action: 'Listen', onAction: () => $('#btn-speak-all').click() });
+  else toast('Done. The whole episode is in Kannada.', { action: 'Listen', onAction: () => $('#btn-speak-all').click() });
 }
 
 /**
@@ -660,7 +660,7 @@ async function reHear(line) {
 // ---------- the list of lines ----------
 function renderAllLines() {
   const box = $('#lines');
-  box.innerHTML = `<div class="lines-head"><div>${t('Time')}</div><div>${t('Tamil — as heard')}</div><div>${t('Kannada')}</div><div></div></div>`;
+  box.innerHTML = `<div class="lines-head"><div>${t('Time')}</div><div>${t('Tamil (as heard)')}</div><div>${t('Kannada')}</div><div></div></div>`;
   E.els.clear();
   const frag = document.createDocumentFragment();
   for (const l of E.project.lines) frag.appendChild(makeLineEl(l));
@@ -1041,7 +1041,7 @@ function setLiveSource(src) {
   Live.source = src;
   $$('#live-source button').forEach((x) => { x.classList.toggle('on', x.dataset.src === src); x.setAttribute('aria-checked', x.dataset.src === src); });
   $('#mic-select').classList.toggle('hidden', src !== 'mic');
-  $('#live-hint').textContent = t(LIVE_HINT[src]) + ($('#live-speak').checked ? t(' While Kannada is spoken aloud, listening pauses — headphones work best.') : '');
+  $('#live-hint').textContent = t(LIVE_HINT[src]) + ($('#live-speak').checked ? t(' While Kannada is spoken aloud, listening pauses, so headphones work best.') : '');
   if (src === 'mic') listMics();
 }
 $$('#live-source button').forEach((b) => b.addEventListener('click', () => setLiveSource(b.dataset.src)));
@@ -1182,7 +1182,7 @@ function onLiveChunk(samples) {
       line.kn = out.kn || '';
       line.gender = out.gender || 'unknown';
       kn.className = 'kn';
-      kn.textContent = line.kn || '—';
+      kn.textContent = line.kn || '…';
       if (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 240) feed.scrollTop = feed.scrollHeight;
       updateLiveCount();
       if (line.kn && $('#live-speak').checked && Live.running) queueLiveSpeech(line);
@@ -1229,7 +1229,7 @@ $('#btn-live-clear').onclick = () => {
 $('#btn-live-save').onclick = async () => {
   const lines = Live.lines.filter((l) => l.ta);
   if (!lines.length) return toast('Nothing heard yet.');
-  const name = 'Live — ' + new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  const name = 'Live, ' + new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   const project = {
     id: newId(), name, mediaName: 'Live capture', createdAt: Date.now(), updatedAt: Date.now(), duration: lines[lines.length - 1].end,
     lines: lines.map((l, i) => ({ id: 'L' + (i + 1), start: l.start, end: l.end, ta: l.ta, kn: l.kn, gender: l.gender, note: '' })),
@@ -1361,11 +1361,11 @@ $('#w-go').onclick = async () => {
       return;
     }
     if (ck && (!r.anthropic || !r.anthropic.ok)) {
-      err.textContent = 'Claude key did not work: ' + (r.anthropic ? r.anthropic.error : '') + ' — fix it, or clear the box to continue without Claude.';
+      err.textContent = 'Claude key did not work: ' + (r.anthropic ? r.anthropic.error : '') + '. Fix it, or clear the box to continue without Claude.';
       return;
     }
     if (kk && (!r.kenpath || !r.kenpath.ok)) {
-      err.textContent = 'Kenpath Labs key did not work: ' + (r.kenpath ? r.kenpath.error : '') + ' — fix it, or clear the box to use Sarvam voices.';
+      err.textContent = 'Kenpath Labs key did not work: ' + (r.kenpath ? r.kenpath.error : '') + '. Fix it, or clear the box to use Sarvam voices.';
       return;
     }
     renderKeyStatus();

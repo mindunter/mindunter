@@ -25,7 +25,7 @@ function createWindow() {
     height: 880,
     minWidth: 720,
     minHeight: 560,
-    title: 'Anuvaada — Tamil → Kannada',
+    title: 'Anuvaada: Tamil → Kannada',
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#131118' : '#f7f4ee',
     icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
     webPreferences: {

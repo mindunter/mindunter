@@ -20,7 +20,7 @@ const DEFAULTS = {
   // Translation
   translationEngine: 'auto', // auto = Claude if key present, else Sarvam
   claudeModel: 'claude-haiku-5-5',
-  kannadaStyle: 'bengaluru', // bengaluru | mysuru | formal | north
+  kannadaStyle: 'bengaluru', // bengaluru (everyday spoken) | formal (standard)
   glossary: '', // "Tamil name = Kannada name" one per line
   storyNotes: '',
   // Voice
@@ -29,8 +29,12 @@ const DEFAULTS = {
   voiceMale: 'sv_msznkuah', // Girish
   voiceAuto: true, // pick male/female voice by who is speaking
   pace: 1.0,
-  settingsVersion: 2,
+  // App
+  uiLang: 'en', // en | kn
+  tutorialDone: false,
+  settingsVersion: 3,
 };
+const CHEAP_MODEL = 'claude-haiku-5-5';
 
 const SECRET_FIELDS = ['sarvamKey', 'anthropicKey', 'kenpathKey'];
 let file = null;
@@ -65,7 +69,13 @@ function init(userDataDir) {
     for (const k of SECRET_FIELDS) cache[k] = decrypt(raw[k]);
     // v2: Claude Haiku translates and Kenpath Svara speaks by default.
     if ((raw.settingsVersion || 1) < 2) {
-      for (const k of ['claudeModel', 'ttsModel', 'voiceFemale', 'voiceMale', 'settingsVersion']) cache[k] = DEFAULTS[k];
+      for (const k of ['claudeModel', 'ttsModel', 'voiceFemale', 'voiceMale']) cache[k] = DEFAULTS[k];
+    }
+    // v3: two Kannada styles only; Haiku by default to keep token use low.
+    if ((raw.settingsVersion || 1) < 3) {
+      if (cache.kannadaStyle !== 'formal') cache.kannadaStyle = 'bengaluru';
+      cache.claudeModel = CHEAP_MODEL;
+      cache.settingsVersion = DEFAULTS.settingsVersion;
     }
   } catch {
     cache = { ...DEFAULTS };
@@ -99,15 +109,20 @@ function getPublic() {
 }
 
 function save(patch) {
+  let newClaudeKey = false;
   for (const [k, v] of Object.entries(patch || {})) {
     if (!(k in DEFAULTS)) continue;
     if (SECRET_FIELDS.includes(k)) {
       if (typeof v === 'string' && v.startsWith('••••')) continue; // unchanged mask
-      cache[k] = String(v || '').trim();
+      const next = String(v || '').trim();
+      if (k === 'anthropicKey' && next && next !== cache[k]) newClaudeKey = true;
+      cache[k] = next;
     } else {
       cache[k] = v;
     }
   }
+  // A new Claude key always starts on Haiku, the cheapest model.
+  if (newClaudeKey) cache.claudeModel = CHEAP_MODEL;
   persist();
   return getPublic();
 }

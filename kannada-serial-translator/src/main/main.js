@@ -5,6 +5,7 @@ const fs = require('fs');
 const settingsStore = require('./settings');
 const sarvam = require('./sarvam');
 const kenpath = require('./kenpath');
+const usage = require('./usage');
 const translator = require('./translator');
 const media = require('./media');
 const projects = require('./projects');
@@ -81,22 +82,40 @@ function registerIpc() {
 
   ipcMain.handle('stt:transcribe', async (_e, { wav, withTimestamps }) => {
     const s = settingsStore.get();
-    return sarvam.transcribe(s, Buffer.from(wav), { withTimestamps });
+    const buf = Buffer.from(wav);
+    const r = await sarvam.transcribe(s, buf, { withTimestamps });
+    usage.addSarvamStt(Math.max(0, buf.length - 44) / 32000); // 16 kHz mono 16-bit
+    return r;
   });
 
   ipcMain.handle('translate:lines', async (_e, { lines, context, live }) => {
     const s = settingsStore.get();
-    return translator.translateLines(s, lines, context || [], { live: !!live });
+    const res = await translator.translateLines(s, lines, context || [], { live: !!live });
+    if (res.usage) usage.addClaude(res.usage.model, res.usage);
+    if (res.sarvamChars) usage.addSarvamTranslate(res.sarvamChars);
+    delete res.usage;
+    delete res.sarvamChars;
+    return res;
   });
 
   ipcMain.handle('tts:speak', async (_e, { text, gender }) => {
     const s = settingsStore.get();
+    const chars = String(text || '').length;
     // returns ArrayBuffer-able Buffers (wav)
-    if (!kenpath.isKenpathModel(s.ttsModel)) return sarvam.speak(s, text, gender);
-    if (s.kenpathKey || !s.sarvamKey) return kenpath.speak(s, text, gender);
+    if (kenpath.isKenpathModel(s.ttsModel) && (s.kenpathKey || !s.sarvamKey)) {
+      const out = await kenpath.speak(s, text, gender);
+      usage.addKenpath(chars, kenpath.lastRemainingChars());
+      return out;
+    }
     // Kenpath voice chosen but no Kenpath key yet: speak with Sarvam's default voices.
-    return sarvam.speak({ ...s, ttsModel: 'bulbul:v3', voiceFemale: 'kavya', voiceMale: 'rahul' }, text, gender);
+    const ss = kenpath.isKenpathModel(s.ttsModel) ? { ...s, ttsModel: 'bulbul:v3', voiceFemale: 'kavya', voiceMale: 'rahul' } : s;
+    const out = await sarvam.speak(ss, text, gender);
+    usage.addSarvamTts(ss.ttsModel, chars);
+    return out;
   });
+
+  ipcMain.handle('usage:get', () => ({ ...usage.summary(), keys: settingsStore.getPublic(), claudeModel: settingsStore.get().claudeModel }));
+  ipcMain.handle('usage:reset', () => usage.reset());
 
   ipcMain.handle('file:open-media', async () => {
     const r = await dialog.showOpenDialog(win, {
@@ -174,9 +193,23 @@ function registerIpc() {
   ipcMain.handle('app:info', () => ({ version: app.getVersion(), platform: process.platform }));
 }
 
+// Only one copy of the app: a second launch just brings the open window forward.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!win) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  });
+}
+
 app.whenReady().then(() => {
+  if (!app.hasSingleInstanceLock()) return;
   settingsStore.init(app.getPath('userData'));
   projects.init(app.getPath('userData'));
+  usage.init(app.getPath('userData'));
   setupMediaPermissions();
   registerIpc();
   createWindow();

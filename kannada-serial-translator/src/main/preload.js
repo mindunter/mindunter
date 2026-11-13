@@ -22,4 +22,6 @@ contextBridge.exposeInMainWorld('api', {
   deleteProject: (id) => ipcRenderer.invoke('project:delete', id),
   ensureMic: () => ipcRenderer.invoke('mic:ensure'),
   appInfo: () => ipcRenderer.invoke('app:info'),
+  getUsage: () => ipcRenderer.invoke('usage:get'),
+  resetUsage: () => ipcRenderer.invoke('usage:reset'),
 });

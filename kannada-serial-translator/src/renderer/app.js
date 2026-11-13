@@ -1,4 +1,4 @@
-/* global AudioKit, VOICES, VOICE_DEFAULTS, VOICE_NAMES, api */
+/* global AudioKit, VOICES, VOICE_DEFAULTS, VOICE_NAMES, I18N, t, api */
 'use strict';
 // `api` is provided by preload.js (window.api).
 
@@ -72,6 +72,7 @@ function showTab(name) {
     x.setAttribute('aria-selected', on);
   });
   $$('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-' + name));
+  if (name === 'settings') renderDashboard();
 }
 $$('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 $('#keystatus').onclick = () => showTab('settings');
@@ -195,17 +196,17 @@ async function refreshProjects() {
   const ul = $('#projects');
   ul.innerHTML = '';
   if (!list.length) {
-    ul.innerHTML = '<li class="empty-li">Episodes you open are saved here automatically.</li>';
+    ul.innerHTML = `<li class="empty-li">${t('Episodes you open are saved here automatically.')}</li>`;
     return;
   }
   for (const p of list) {
     const li = document.createElement('li');
     li.className = E.project && E.project.id === p.id ? 'active' : '';
     const working = E.job && E.project && E.project.id === p.id;
-    const chip = working ? '<span class="chip">Working…</span>'
-      : p.failed || p.pending ? `<span class="chip">${p.failed ? 'Needs retry' : 'Unfinished'}</span>`
-      : p.lines ? '<span class="chip ok">Ready</span>' : '';
-    li.innerHTML = `<div class="pbody"><div class="pname"></div><div class="pmeta">${chip}<span>${plural(p.lines, 'line')} · ${new Date(p.updatedAt).toLocaleDateString()}</span></div></div>`;
+    const chip = working ? `<span class="chip">${t('Working…')}</span>`
+      : p.failed || p.pending ? `<span class="chip">${t(p.failed ? 'Needs retry' : 'Unfinished')}</span>`
+      : p.lines ? `<span class="chip ok">${t('Ready')}</span>` : '';
+    li.innerHTML = `<div class="pbody"><div class="pname"></div><div class="pmeta">${chip}<span>${I18N.tn(p.lines, '{n} lines')} · ${new Date(p.updatedAt).toLocaleDateString()}</span></div></div>`;
     $('.pname', li).textContent = p.name;
     li.title = p.name;
     li.onclick = () => openProject(p.id);
@@ -379,7 +380,7 @@ function updateMeta() {
   const p = E.project;
   if (!p) return;
   const done = p.lines.filter((l) => l.kn).length;
-  $('#ep-meta').textContent = [p.mediaName, p.duration ? fmtTime(p.duration) : '', p.lines.length ? `${done} of ${plural(p.lines.length, 'line')} in Kannada` : '']
+  $('#ep-meta').textContent = [p.mediaName, p.duration ? fmtTime(p.duration) : '', p.lines.length ? t('{done} of {n} lines in Kannada', { done, n: p.lines.length }) : '']
     .filter(Boolean).join('  ·  ');
   updateBanner();
 }
@@ -438,12 +439,12 @@ function updateBanner() {
   if (!failed && !pending) return b.classList.add('hidden');
   b.classList.remove('hidden');
   if (failed) {
-    $('#banner-text').textContent = `${plural(failed, 'part')} of the episode could not be heard.`;
-    $('#banner-btn').textContent = 'Try again';
+    $('#banner-text').textContent = I18N.tn(failed, '{n} parts of the episode could not be heard.');
+    $('#banner-btn').textContent = t('Try again');
     $('#banner-btn').onclick = retryFailed;
   } else {
-    $('#banner-text').textContent = `${plural(pending, 'line')} not yet written in Kannada.`;
-    $('#banner-btn').textContent = 'Continue';
+    $('#banner-text').textContent = I18N.tn(pending, '{n} lines not yet written in Kannada.');
+    $('#banner-btn').textContent = t('Continue');
     $('#banner-btn').onclick = () => translateLines(p.lines.filter((l) => l.kn == null && l.ta));
   }
 }
@@ -573,7 +574,7 @@ async function translateBatch(project, batch, job) {
   batch.forEach((l) => { E.busy.add(l.id); updateLineEl(l); });
   try {
     const firstIdx = project.lines.indexOf(batch[0]);
-    const context = project.lines.slice(Math.max(0, firstIdx - 15), firstIdx).filter((l) => l.ta).map((l) => ({ ta: l.ta, kn: l.kn || '' }));
+    const context = project.lines.slice(Math.max(0, firstIdx - 15), firstIdx).filter((l) => l.ta).map((l) => ({ ta: l.ta, kn: l.kn || '', gender: l.gender }));
     const res = await api.translate(batch.map((l) => ({ id: l.id, ta: l.ta })), context, false);
     if ((job && job.cancelled) || E.project !== project) return;
     if (res.warning) toast(res.warning, { kind: 'error', ms: 7000 });
@@ -659,7 +660,7 @@ async function reHear(line) {
 // ---------- the list of lines ----------
 function renderAllLines() {
   const box = $('#lines');
-  box.innerHTML = '<div class="lines-head"><div>Time</div><div>Tamil — as heard</div><div>Kannada</div><div></div></div>';
+  box.innerHTML = `<div class="lines-head"><div>${t('Time')}</div><div>${t('Tamil — as heard')}</div><div>${t('Kannada')}</div><div></div></div>`;
   E.els.clear();
   const frag = document.createDocumentFragment();
   for (const l of E.project.lines) frag.appendChild(makeLineEl(l));
@@ -735,14 +736,14 @@ function updateLineEl(line, el = E.els.get(line.id)) {
   el.classList.toggle('failed', !!line.error);
   $('.time', el).textContent = fmtTime(line.start);
   const ta = $('.ta', el);
-  if (document.activeElement !== ta) ta.textContent = line.error ? 'Could not hear this part.' : line.ta;
+  if (document.activeElement !== ta) ta.textContent = line.error ? t('Could not hear this part.') : line.ta;
   ta.contentEditable = line.error ? 'false' : 'true';
   if (line.error) ta.title = line.error;
   const kn = $('.kn', el);
   if (document.activeElement !== kn) kn.textContent = line.kn || '';
   kn.contentEditable = line.error ? 'false' : 'true';
   kn.classList.toggle('wait', busy);
-  kn.dataset.placeholder = line.error ? 'Click ↻ to listen again' : busy ? 'Writing Kannada…' : line.kn == null ? 'Not yet in Kannada' : line.ta ? '(nothing to translate)' : '';
+  kn.dataset.placeholder = t(line.error ? 'Click ↻ to listen again' : busy ? 'Writing Kannada…' : line.kn == null ? 'Not yet in Kannada' : line.ta ? '(nothing to translate)' : '');
   $('[data-act=speak]', el).disabled = !line.kn;
   $('[data-act=redo]', el).disabled = busy;
   updateSub(line, el);
@@ -750,11 +751,11 @@ function updateLineEl(line, el = E.els.get(line.id)) {
 
 function updateSub(line, el) {
   const bits = [];
-  if (line.kn && line.gender === 'male') bits.push('<span class="who m">♂ man</span>');
-  if (line.kn && line.gender === 'female') bits.push('<span class="who f">♀ woman</span>');
-  if (line.taEdited) bits.push('<span class="edited-tag">✎ Tamil edited</span>');
-  else if (line.taHeard != null && line.taHeard !== line.ta) bits.push(`<span class="fixed-tag" title="Heard as: ${escapeHtml(line.taHeard)}">✓ Tamil corrected</span>`);
-  if (line.edited) bits.push('<span class="edited-tag">✎ edited</span>');
+  if (line.kn && line.gender === 'male') bits.push(`<span class="who m">${t('♂ man')}</span>`);
+  if (line.kn && line.gender === 'female') bits.push(`<span class="who f">${t('♀ woman')}</span>`);
+  if (line.taEdited) bits.push(`<span class="edited-tag">${t('✎ Tamil edited')}</span>`);
+  else if (line.taHeard != null && line.taHeard !== line.ta) bits.push(`<span class="fixed-tag" title="${t('Heard as: ')}${escapeHtml(line.taHeard)}">${t('✓ Tamil corrected')}</span>`);
+  if (line.edited) bits.push(`<span class="edited-tag">${t('✎ edited')}</span>`);
   if (line.note) bits.push(`<span class="note">${escapeHtml(line.note)}</span>`);
   $('.sub', el).innerHTML = bits.join('');
 }
@@ -813,7 +814,7 @@ async function redoLine(line) {
   if (line.error) {
     if (!E.samples) return toast('The episode file is needed to listen again.', { action: 'Locate file', onAction: locateMedia });
     const el = E.els.get(line.id);
-    $('.kn', el).dataset.placeholder = 'Listening again…';
+    $('.kn', el).dataset.placeholder = t('Listening again…');
     if (!(await reHear(line))) return toast('Still could not hear it: ' + line.error, 'error');
     const fresh = E.project.lines.filter((l) => l.chunk === line.chunk && l.kn == null && l.ta);
     if (!fresh.length) return;
@@ -1031,16 +1032,16 @@ const Live = {
 };
 const LIVE_HINT = {
   system: 'Play the Tamil episode on this laptop (YouTube, Hotstar, Sun NXT, VLC…) and press Start. Kannada appears a few seconds after each line.',
-  mic: 'Play the episode near the microphone, or speak, and press Start. Kannada appears a few seconds after each line.',
+  mic: 'Hold the microphone near the speaker or TV and press Start.',
 };
-const LIVE_EMPTY = '<div class="live-empty"><div><b>Kannada will appear here</b>as each Tamil line is spoken.</div></div>';
+const liveEmpty = () => `<div class="live-empty"><div><b>${t('Kannada will appear here')}</b>${t('as each Tamil line is spoken.')}</div></div>`;
 
 function setLiveSource(src) {
   if (Live.running) return toast('Stop listening first to change the source.');
   Live.source = src;
   $$('#live-source button').forEach((x) => { x.classList.toggle('on', x.dataset.src === src); x.setAttribute('aria-checked', x.dataset.src === src); });
   $('#mic-select').classList.toggle('hidden', src !== 'mic');
-  $('#live-hint').textContent = LIVE_HINT[src] + ($('#live-speak').checked ? ' While Kannada is spoken aloud, listening pauses — headphones work best.' : '');
+  $('#live-hint').textContent = t(LIVE_HINT[src]) + ($('#live-speak').checked ? t(' While Kannada is spoken aloud, listening pauses — headphones work best.') : '');
   if (src === 'mic') listMics();
 }
 $$('#live-source button').forEach((b) => b.addEventListener('click', () => setLiveSource(b.dataset.src)));
@@ -1071,7 +1072,7 @@ function setLiveState(text, mode) {
 }
 function updateLiveCount() {
   const n = Live.lines.filter((l) => l.kn).length;
-  $('#live-count').textContent = n ? `${plural(n, 'line')} this session` : '';
+  $('#live-count').textContent = n ? I18N.tn(n, '{n} lines this session') : '';
 }
 
 $('#btn-live').onclick = () => (Live.running ? stopLive() : startLive());
@@ -1123,9 +1124,9 @@ async function startLive() {
     return toast('Could not start listening: ' + errMsg(e), 'error');
   }
   if (!Live.lines.length) $('#live-feed').innerHTML = '';
-  $('#btn-live').textContent = '■ Stop';
+  $('#btn-live').textContent = t('■ Stop');
   $('#btn-live').classList.replace('primary', 'danger');
-  setLiveState('Listening', 'on');
+  setLiveState(t('Listening'), 'on');
 }
 
 function stopLive() {
@@ -1139,9 +1140,9 @@ function stopLive() {
   Live.stream = Live.ctx = null;
   Live.speakQueue = [];
   $('#meter').style.width = '0';
-  $('#btn-live').textContent = '▶ Start';
+  $('#btn-live').textContent = t('▶ Start');
   $('#btn-live').classList.replace('danger', 'primary');
-  setLiveState('Not listening');
+  setLiveState(t('Not listening'));
 }
 
 function onLiveChunk(samples) {
@@ -1153,7 +1154,7 @@ function onLiveChunk(samples) {
   const stick = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 120;
   const el = document.createElement('div');
   el.className = 'live-item';
-  el.innerHTML = `<div class="meta">${fmtTime(start)}</div><div class="ta"></div><div class="kn pending">Listening…</div>`;
+  el.innerHTML = `<div class="meta">${fmtTime(start)}</div><div class="ta"></div><div class="kn pending">${t('Listening…')}</div>`;
   feed.appendChild(el);
   if (stick) feed.scrollTop = feed.scrollHeight;
 
@@ -1166,18 +1167,18 @@ function onLiveChunk(samples) {
       r = await heard;
     } catch (e) {
       kn.className = 'kn err';
-      kn.textContent = 'Could not hear this part: ' + errMsg(e);
+      kn.textContent = t('Could not hear this part: ') + errMsg(e);
       return;
     }
     line.ta = (r.transcript || '').trim();
     if (!line.ta) { el.remove(); Live.lines.splice(Live.lines.indexOf(line), 1); return; }
     $('.ta', el).textContent = line.ta;
-    kn.textContent = 'Writing Kannada…';
+    kn.textContent = t('Writing Kannada…');
     try {
-      const context = Live.lines.filter((l) => l.kn).slice(-10).map((l) => ({ ta: l.ta, kn: l.kn }));
+      const context = Live.lines.filter((l) => l.kn).slice(-10).map((l) => ({ ta: l.ta, kn: l.kn, gender: l.gender }));
       const res = await api.translate([{ id: line.id, ta: line.ta }], context, true);
       const out = res.lines[0] || {};
-      if (out.ta) { line.taHeard = line.ta; line.ta = out.ta; $('.ta', el).textContent = line.ta; $('.ta', el).title = 'Heard as: ' + line.taHeard; }
+      if (out.ta) { line.taHeard = line.ta; line.ta = out.ta; $('.ta', el).textContent = line.ta; $('.ta', el).title = t('Heard as: ') + line.taHeard; }
       line.kn = out.kn || '';
       line.gender = out.gender || 'unknown';
       kn.className = 'kn';
@@ -1187,7 +1188,7 @@ function onLiveChunk(samples) {
       if (line.kn && $('#live-speak').checked && Live.running) queueLiveSpeech(line);
     } catch (e) {
       kn.className = 'kn err';
-      kn.textContent = 'Could not translate: ' + errMsg(e);
+      kn.textContent = t('Could not translate: ') + errMsg(e);
     }
   }).catch(() => {});
 }
@@ -1209,19 +1210,19 @@ function queueLiveSpeech(line) {
 
 // while Kannada is spoken during Live, don't listen (it would hear itself)
 Speaker.onStart = () => {
-  if (Live.running && $('#live-speak').checked) { Live.paused = true; setLiveState('Speaking Kannada', 'speaking'); }
+  if (Live.running && $('#live-speak').checked) { Live.paused = true; setLiveState(t('Speaking Kannada'), 'speaking'); }
 };
 Speaker.onEnd = () => {
   if (!Live.paused) return;
   Live.paused = false;
   if (Live.seg) Live.seg.reset();
-  if (Live.running) setLiveState('Listening', 'on');
+  if (Live.running) setLiveState(t('Listening'), 'on');
 };
 
 $('#btn-live-clear').onclick = () => {
   if (Live.lines.length && !confirm('Clear this live session?')) return;
   Live.lines = [];
-  $('#live-feed').innerHTML = LIVE_EMPTY;
+  $('#live-feed').innerHTML = liveEmpty();
   updateLiveCount();
 };
 
@@ -1235,7 +1236,7 @@ $('#btn-live-save').onclick = async () => {
   };
   await api.saveProject(project);
   await refreshProjects();
-  toast('Saved to Episodes.', { action: 'Open', onAction: () => { showTab('episode'); openProject(project.id); } });
+  toast(t('Saved to Episodes.'), { action: t('Open'), onAction: () => { showTab('episode'); openProject(project.id); } });
 };
 
 // ================================================================ SETTINGS
@@ -1281,7 +1282,9 @@ function readSettingsForm() {
 
 async function saveSettingsNow() {
   settings = await api.saveSettings(readSettingsForm());
+  $('#claudeModel').value = settings.claudeModel; // a new Claude key resets this to Haiku
   renderKeyStatus();
+  if ($('#view-settings').classList.contains('active')) renderDashboard();
 }
 const autosaveSettings = debounce(saveSettingsNow, 400);
 
@@ -1303,12 +1306,12 @@ KEY_FIELDS.forEach((f) => {
 });
 
 function keyResult(name, x) {
-  if (x == null) return `<span class="muted">${name}: not set</span>`;
-  return x.ok ? `<span class="ok">✓ ${name} works</span>` : `<span class="bad">✗ ${name}: ${escapeHtml(x.error)}</span>`;
+  if (x == null) return `<span class="muted">${t('{name}: not set', { name })}</span>`;
+  return x.ok ? `<span class="ok">${t('✓ {name} works', { name })}</span>` : `<span class="bad">✗ ${name}: ${escapeHtml(x.error)}</span>`;
 }
 $('#btn-test').onclick = async () => {
   const out = $('#test-result');
-  out.textContent = 'Checking…';
+  out.textContent = t('Checking…');
   $('#btn-test').disabled = true;
   try {
     await saveSettingsNow();
@@ -1345,10 +1348,10 @@ $('#w-go').onclick = async () => {
   const ck = $('#w-claude').value.trim();
   const kk = $('#w-kenpath').value.trim();
   const err = $('#w-error');
-  if (!sk) { err.textContent = 'Please paste your Sarvam AI key.'; return $('#w-sarvam').focus(); }
+  if (!sk) { err.textContent = t('Please paste your Sarvam AI key.'); return $('#w-sarvam').focus(); }
   const btn = $('#w-go');
   btn.disabled = true;
-  btn.textContent = 'Checking…';
+  btn.textContent = t('Checking…');
   err.textContent = '';
   try {
     settings = await api.saveSettings({ sarvamKey: sk, anthropicKey: ck, kenpathKey: kk });
@@ -1368,12 +1371,13 @@ $('#w-go').onclick = async () => {
     renderKeyStatus();
     loadSettingsForm();
     $('#welcome').classList.add('hidden');
-    toast(ck ? 'All set! Open a Tamil episode to begin.' : 'Ready. Add a Claude key later in Settings for the best Kannada.');
+    if (!settings.tutorialDone) Tour.open();
+    else toast(t(ck ? 'All set! Open a Tamil episode to begin.' : 'Ready. Add a Claude key later in Settings for the best Kannada.'));
   } catch (e) {
     err.textContent = errMsg(e);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Check keys & start';
+    btn.textContent = t('Check keys & start');
   }
 };
 ['#w-sarvam', '#w-claude', '#w-kenpath'].forEach((s) => $(s).addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#w-go').click(); }));
@@ -1411,16 +1415,123 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ================================================================ usage dashboard
+const fmtNum = (n) => Math.round(n || 0).toLocaleString(I18N.lang === 'kn' ? 'kn-IN' : 'en-IN');
+const USD_INR = 88; // rough, for the combined total only
+
+async function renderDashboard() {
+  let u;
+  try { u = await api.getUsage(); } catch { return; }
+  const k = u.keys;
+  const modelName = { 'claude-haiku-5-5': 'Haiku 5.5', 'claude-sonnet-5-5': 'Sonnet 5.5', 'claude-opus-5-5': 'Opus 5.5' }[u.claudeModel] || u.claudeModel;
+  const kp = u.kenpath;
+  const freeLeft = Math.max(0, kp.freeChars - kp.chars);
+  const quota = kp.quota && Number.isFinite(kp.quota.remaining) ? kp.quota.remaining : null;
+  const meterPct = Math.min(100, (kp.chars / kp.freeChars) * 100);
+  const stat = (label, value) => `<div class="stat"><span>${t(label)}</span><b>${value}</b></div>`;
+  const card = (cls, name, role, set, keyTail, body, cost, link) => `
+    <article class="dash-card ${cls} ${set ? '' : 'off'}">
+      <header><i class="logo">${name[0]}</i><div><b>${name}</b><small>${t(role)}</small></div>
+        <span class="pill ${set ? 'ok' : ''}">${set ? t('Key added') + ' · ' + escapeHtml(keyTail) : t('No key')}</span></header>
+      <div class="stats">${body}</div>
+      <footer><span class="cost">${cost}</span><a href="${link}" target="_blank">${t('Open console')} ↗</a></footer>
+    </article>`;
+  const tail = (v) => String(v || '').slice(-4);
+  const c = u.claude, s = u.sarvam;
+  $('#dash').innerHTML =
+    card('c-claude', 'Claude', 'Translation', k.anthropicKeySet, tail(k.anthropicKey),
+      stat('Model', modelName) + stat('Requests', fmtNum(c.requests)) + stat('Tokens in', fmtNum(c.inputTokens)) + stat('Tokens out', fmtNum(c.outputTokens)) + stat('Cached tokens', fmtNum(c.cacheReadTokens)),
+      '$' + c.costUsd.toFixed(c.costUsd < 1 ? 3 : 2), 'https://console.anthropic.com/settings/billing') +
+    card('c-sarvam', 'Sarvam', 'Hearing Tamil', k.sarvamKeySet, tail(k.sarvamKey),
+      stat('Audio heard', fmtNum(s.sttSeconds / 60) + ' ' + t('min')) + stat('Requests', fmtNum(s.sttRequests + s.ttsRequests)) + stat('Voice characters', fmtNum(s.ttsChars)) + stat('Translated characters', fmtNum(s.translateChars)),
+      '₹' + s.costInr.toFixed(2), 'https://dashboard.sarvam.ai') +
+    card('c-kenpath', 'Kenpath', 'Kannada voice', k.kenpathKeySet, tail(k.kenpathKey),
+      stat('Characters spoken', fmtNum(kp.chars)) + stat('Requests', fmtNum(kp.requests)) + stat('Free this month', fmtNum(freeLeft)) +
+      (quota != null ? stat('Left on your plan', fmtNum(quota)) : '') +
+      `<div class="meter-row"><div class="meter big"><div class="meter-fill" style="width:${meterPct}%"></div></div></div>`,
+      '₹' + kp.costInr.toFixed(2), 'https://platform.kenpathlabs.com/dashboard');
+  const totalInr = c.costUsd * USD_INR + s.costInr + kp.costInr;
+  $('#dash-total').innerHTML = `<div><span>${t('This month')}</span><b>${new Date(u.month + '-01').toLocaleDateString(I18N.lang === 'kn' ? 'kn-IN' : 'en-IN', { month: 'long', year: 'numeric' })}</b></div>
+    <div><span>${t('Estimated spend')}</span><b>≈ ₹${totalInr.toFixed(2)}</b></div>`;
+}
+$('#btn-dash-refresh').onclick = renderDashboard;
+$('#btn-dash-reset').onclick = async () => {
+  if (!confirm(t('Reset this month\'s counters?'))) return;
+  await api.resetUsage();
+  renderDashboard();
+};
+
+// ================================================================ tutorial (first open, once)
+const Tour = {
+  i: 0,
+  steps: [
+    { art: '🎬', title: 'Open a Tamil episode', text: 'Drop a video or audio file, or click New episode. Anuvaada listens, fixes the Tamil, and writes every line in natural Kannada. Your work saves itself.' },
+    { art: '✍️', title: 'Review line by line', text: 'Click any Tamil or Kannada line to edit it. Press Enter on the Tamil to rewrite the Kannada. 🔊 plays the Kannada voice, which switches between a man and a woman with the speaker.' },
+    { art: '📡', title: 'Translate live', text: 'Playing a serial on Sun NXT or YouTube? Open Live, press Start, and the Kannada appears as each line is spoken.' },
+    { art: '📊', title: 'Keys, costs and language', text: 'Settings shows your keys and what each service has used this month. Switch the whole app between English and ಕನ್ನಡ with the EN / ಕ button at the top.' },
+  ],
+  open() { this.i = 0; $('#tour').classList.remove('hidden'); this.render(); },
+  render() {
+    const s = this.steps[this.i];
+    const card = $('.tour-card');
+    card.classList.remove('swap'); void card.offsetWidth; card.classList.add('swap');
+    $('#tour-art').textContent = s.art;
+    $('#tour-title').textContent = t(s.title);
+    $('#tour-text').textContent = t(s.text);
+    $('#tour-dots').innerHTML = this.steps.map((_, j) => `<i class="${j === this.i ? 'on' : ''}"></i>`).join('');
+    $('#tour-back').style.visibility = this.i ? 'visible' : 'hidden';
+    $('#tour-next').textContent = this.i === this.steps.length - 1 ? t('Get started') : t('Next');
+  },
+  async close() {
+    $('#tour').classList.add('hidden');
+    settings = await api.saveSettings({ tutorialDone: true });
+  },
+};
+$('#tour-next').onclick = () => (Tour.i < Tour.steps.length - 1 ? (Tour.i++, Tour.render()) : Tour.close());
+$('#tour-back').onclick = () => { if (Tour.i) { Tour.i--; Tour.render(); } };
+$('#tour-skip').onclick = () => Tour.close();
+$('#btn-tour').onclick = () => Tour.open();
+document.addEventListener('keydown', (e) => {
+  if ($('#tour').classList.contains('hidden')) return;
+  if (e.key === 'Escape') Tour.close();
+  if (e.key === 'ArrowRight' || e.key === 'Enter') $('#tour-next').click();
+  if (e.key === 'ArrowLeft') $('#tour-back').click();
+});
+
+// ================================================================ English / Kannada
+function applyLanguage(lang) {
+  I18N.apply(lang);
+  renderKeyStatus();
+  refreshProjects();
+  if (E.project) renderAllLines();
+  setLiveSource(Live.source);
+  if (!Live.running) { setLiveState(t('Not listening')); $('#btn-live').textContent = t('▶ Start'); } else $('#btn-live').textContent = t('■ Stop');
+  if (!Live.lines.length) $('#live-feed').innerHTML = liveEmpty();
+  updateLiveCount();
+  if (!$('#tour').classList.contains('hidden')) Tour.render();
+  if ($('#view-settings').classList.contains('active')) renderDashboard();
+}
+$('#lang-btn').onclick = async () => {
+  const next = I18N.lang === 'kn' ? 'en' : 'kn';
+  applyLanguage(next);
+  settings = await api.saveSettings({ uiLang: next });
+};
+
 // ================================================================ boot
 (async function boot() {
   settings = await api.getSettings();
+  I18N.apply(settings.uiLang || 'en');
   loadSettingsForm();
   renderKeyStatus();
   $('#live-speak').checked = store.get('liveSpeak', false);
   setLiveSource('system');
-  $('#live-feed').innerHTML = LIVE_EMPTY;
+  setLiveState(t('Not listening'));
+  $('#btn-live').textContent = t('▶ Start');
+  $('#live-feed').innerHTML = liveEmpty();
   await refreshProjects();
   const info = await api.appInfo();
   $('#app-version').textContent = `Anuvaada ${info.version}`;
   if (!settings.sarvamKeySet) showWelcome();
+  else if (!settings.tutorialDone) Tour.open();
+  document.body.classList.add('ready');
 })();

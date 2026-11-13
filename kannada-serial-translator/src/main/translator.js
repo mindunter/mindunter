@@ -8,15 +8,12 @@ const { zodOutputFormat } = require('@anthropic-ai/sdk/helpers/zod');
 const { z } = require('zod/v4');
 const sarvam = require('./sarvam');
 
+// Two writing styles. Older saved settings (mysuru, north) fall back to everyday spoken.
 const STYLES = {
   bengaluru:
-    'Everyday spoken Bengaluru / Old-Mysuru Kannada exactly as heard in popular Kannada TV serials (Zee Kannada, Colors Kannada, Star Suvarna). Contracted spoken verb forms ("ಏನ್ ಮಾಡ್ತಿದ್ದೀಯಾ?", "ಬರ್ತೀನಿ", "ಹೋಗ್ಲಿ ಬಿಡು", "ಗೊತ್ತಿಲ್ವಾ?"), natural English words where Kannada speakers really use them (phone, office, sorry), written in Kannada script.',
-  mysuru:
-    'Spoken Mysuru–Mandya family Kannada with its warm rural-town flavour ("ಏನ್ಲಾ", "ಬಾರಮ್ಮ", "ಹೇಳ್ರಿ"), as used in village/joint-family Kannada serials, written in Kannada script.',
-  north:
-    'Spoken North-Karnataka (Hubballi–Dharwad) Kannada ("ಏನ್ರೀ", "ಬರ್ರಿ", "ಹೌದಲ್ಲ", "ಏನಾತು?"), as used in North-Karnataka-set serials, written in Kannada script.',
+    'Everyday spoken Kannada, the casual Kannada most people speak and hear in popular Kannada TV serials (Zee Kannada, Colors Kannada, Star Suvarna). Contracted spoken verb forms ("ಏನ್ ಮಾಡ್ತಿದ್ದೀಯಾ?", "ಬರ್ತೀನಿ", "ಹೋಗ್ಲಿ ಬಿಡು", "ಗೊತ್ತಿಲ್ವಾ?"), natural English words where Kannada speakers really use them (phone, office, sorry), written in Kannada script.',
   formal:
-    'Clean standard (ಗ್ರಾಂಥಿಕ-leaning but natural) Kannada suitable for narration or formal characters, written in Kannada script.',
+    'Clean standard Kannada (natural, not bookish) suitable for narration or formal characters, written in Kannada script.',
 };
 
 function systemPrompt(settings) {
@@ -27,7 +24,8 @@ function systemPrompt(settings) {
     'You are a senior Kannada television dialogue writer adapting a Tamil daily serial into a Kannada remake. ',
     'You receive lines that a speech-recognition system transcribed from the Tamil episode audio. ',
     'For each line, write how a Kannada character would actually say it on screen.\n\n',
-    'Target register: ', style, '\n\n',
+    'Target register: ', style, '\n',
+    'The register only shapes word choice and tone. It must never change what is said: same meaning, same facts, same emotion as the Tamil line.\n\n',
     'Rules:\n',
     '- Translate meaning, emotion and intent, not word-by-word. Replace Tamil idioms, proverbs and jokes with natural Kannada equivalents that land the same way.\n',
     '- Keep the same respect level: நீங்க/நீங்கள் → ನೀವು, நீ → ನೀನು; keep "-ங்க" politeness as "-ರಿ/-ಇ" endings. Map kinship terms the way Kannada families say them (அம்மா→ಅಮ್ಮ, அப்பா→ಅಪ್ಪ, அண்ணா→ಅಣ್ಣ, அக்கா→ಅಕ್ಕ, அண்ணி→ಅತ್ತಿಗೆ, மாமா→ಮಾವ, அத்தை→ಅತ್ತೆ, மாமியார்→ಅತ್ತೆ, தம்பி→ತಮ್ಮ, தங்கச்சி→ತಂಗಿ).\n',
@@ -36,7 +34,7 @@ function systemPrompt(settings) {
     '- In "tamil", first write the Tamil line as the character most likely really said it: fix misheard words, word breaks, verb and case endings, names from the glossary, and add punctuation. Keep it spoken, colloquial Tamil exactly as in the serial (do not make it formal or literary). If the line was already right, repeat it unchanged. Translate this corrected Tamil.\n',
     '- Keep character names consistent across the episode. Use the glossary below for names and places when given.\n',
     '- Output only Kannada script in "kannada" (no Tamil, no transliteration, no explanations).\n',
-    '- In "gender", say whether the speaker of that line is male or female, judged from Tamil verb endings (-ன்/-ான் male, -ள்/-ாள் female), forms of address and context; use "unknown" when you cannot tell.\n',
+    '- In "gender", say whether the speaker of that line is male or female; the app switches between a man\'s and a woman\'s voice with it, so decide for every line. Use Tamil verb endings (-ன்/-ான் male, -ள்/-ாள் female), who is addressed and how (a speaker calling someone அம்மா/அப்பா/மாமா is usually their child or in-law; ஏய் டா, மச்சான் are mostly said by men; ஏன்டி, அக்கா between women), names, and the flow of the dialogue: speakers usually alternate, and previous lines show who has been talking. Use "unknown" only when there is truly nothing to go on.\n',
     '- In "note", optionally add a very short English note for the writer only when something cultural needed adapting (otherwise empty string).\n',
     glossary ? '\nName / place glossary (Tamil = Kannada):\n' + glossary + '\n' : '',
     notes ? '\nStory notes from the writer:\n' + notes + '\n' : '',
@@ -82,7 +80,8 @@ async function translateLines(settings, lines, context, { live = false } = {}) {
 
   if (useClaude(settings)) {
     try {
-      return { engine: 'claude', lines: await viaClaude(settings, lines, context, live) };
+      const r = await viaClaude(settings, lines, context, live);
+      return { engine: 'claude', lines: r.lines, usage: r.usage };
     } catch (err) {
       if (!settings.sarvamKey || err.fatal) throw err;
       const res = await viaSarvam(settings, lines);
@@ -97,7 +96,7 @@ async function viaClaude(settings, lines, context, live) {
   const c = getClient(settings.anthropicKey);
   const ctx = (context || []).slice(-20);
   const payload = {
-    previous_lines_for_context_only: ctx.map((l) => ({ tamil: l.ta, kannada: l.kn })),
+    previous_lines_for_context_only: ctx.map((l) => ({ tamil: l.ta, kannada: l.kn, ...(l.gender && l.gender !== 'unknown' ? { speaker: l.gender } : {}) })),
     translate_these: lines.map((l) => ({ id: String(l.id), tamil: l.ta })),
   };
   let response;
@@ -131,21 +130,25 @@ async function viaClaude(settings, lines, context, live) {
   const parsed = response.parsed_output;
   if (!parsed) throw new Error('Claude returned an unreadable answer');
   const byId = new Map(parsed.lines.map((l) => [String(l.id), l]));
-  return lines.map((l) => {
+  const out = lines.map((l) => {
     const r = byId.get(String(l.id));
     const ta = r ? r.tamil.trim() : '';
     return { id: l.id, ta: ta && ta !== String(l.ta).trim() ? ta : undefined, kn: r ? r.kannada.trim() : '', gender: r ? r.gender : 'unknown', note: r ? r.note.trim() : '' };
   });
+  return { lines: out, usage: { ...response.usage, model: response.model || settings.claudeModel } };
 }
 
 async function viaSarvam(settings, lines) {
   if (!settings.sarvamKey) throw new Error('No translation key set. Add a Sarvam (or Claude) key in Settings.');
   const out = [];
+  let chars = 0;
   for (const l of lines) {
-    const kn = String(l.ta || '').trim() ? await sarvam.translate(settings, l.ta) : '';
+    const ta = String(l.ta || '').trim();
+    const kn = ta ? await sarvam.translate(settings, l.ta) : '';
+    chars += ta.length;
     out.push({ id: l.id, kn, gender: 'unknown', note: '' });
   }
-  return { engine: 'sarvam', lines: out };
+  return { engine: 'sarvam', lines: out, sarvamChars: chars };
 }
 
 async function testKey(key, model) {

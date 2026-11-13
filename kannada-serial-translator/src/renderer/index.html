@@ -14,19 +14,22 @@
       <span class="brand-name">Anuvaada</span>
     </div>
     <nav class="tabs" role="tablist" aria-label="Main">
-      <button class="tab active" data-tab="episode" role="tab" aria-selected="true">Episodes</button>
-      <button class="tab" data-tab="live" role="tab" aria-selected="false">Live</button>
-      <button class="tab" data-tab="settings" role="tab" aria-selected="false">Settings</button>
+      <button class="tab active" data-tab="episode" role="tab" aria-selected="true" data-i18n="tab.episodes">Episodes</button>
+      <button class="tab" data-tab="live" role="tab" aria-selected="false" data-i18n="tab.live">Live</button>
+      <button class="tab" data-tab="settings" role="tab" aria-selected="false" data-i18n="tab.settings">Settings</button>
     </nav>
-    <button class="keystatus" id="keystatus" title="API keys"></button>
+    <div class="top-right">
+      <button class="lang-btn" id="lang-btn" title="English / ಕನ್ನಡ"><span class="lang-en">EN</span><span class="lang-kn">ಕ</span></button>
+      <button class="keystatus" id="keystatus" data-i18n-title="top.keys" title="API keys"></button>
+    </div>
   </header>
 
   <main class="app">
     <!-- ================= EPISODES ================= -->
     <section class="view active" id="view-episode" role="tabpanel">
       <aside class="sidebar">
-        <button class="btn primary block" id="btn-open">＋ New episode</button>
-        <h3 class="side-title">Saved work</h3>
+        <button class="btn primary block" id="btn-open">＋ <span data-i18n="ep.new">New episode</span></button>
+        <h3 class="side-title" data-i18n="ep.saved">Saved work</h3>
         <ul class="projects" id="projects"></ul>
       </aside>
 
@@ -35,15 +38,15 @@
         <div class="empty" id="episode-empty">
           <div class="drop" id="dropzone">
             <div class="drop-icon">🎬</div>
-            <h2>Drop a Tamil episode here</h2>
-            <p>or</p>
-            <button class="btn primary lg" id="btn-open-2">Choose a file</button>
-            <p class="muted small">Video or audio — mp4, mkv, mp3, wav, m4a…</p>
+            <h2 data-i18n="ep.dropTitle">Drop a Tamil episode here</h2>
+            <p data-i18n="ep.or">or</p>
+            <button class="btn primary lg" id="btn-open-2" data-i18n="ep.choose">Choose a file</button>
+            <p class="muted small" data-i18n="ep.formats">Video or audio — mp4, mkv, mp3, wav, m4a…</p>
           </div>
           <ol class="how">
-            <li><b>Listen</b><span>The Tamil dialogue is heard and written down.</span></li>
-            <li><b>Write</b><span>Each line becomes natural spoken Kannada.</span></li>
-            <li><b>Review</b><span>Hear it, edit it, export the script.</span></li>
+            <li><b data-i18n="how.1">Listen</b><span data-i18n="how.1d">The Tamil dialogue is heard and written down.</span></li>
+            <li><b data-i18n="how.2">Write</b><span data-i18n="how.2d">Each line becomes natural spoken Kannada.</span></li>
+            <li><b data-i18n="how.3">Review</b><span data-i18n="how.3d">Hear it, edit it, export the script.</span></li>
           </ol>
         </div>
 
@@ -55,27 +58,27 @@
               <div class="ep-meta" id="ep-meta"></div>
             </div>
             <div class="ep-actions">
-              <button class="btn primary" id="btn-speak-all" title="Read the Kannada aloud from the selected line (K)">🔊 Listen in Kannada</button>
-              <button class="btn danger hidden" id="btn-stop-speak">■ Stop</button>
+              <button class="btn primary" id="btn-speak-all" data-i18n-title="ep.listenTip" title="Read the Kannada aloud from the selected line (K)">🔊 <span data-i18n="ep.listen">Listen in Kannada</span></button>
+              <button class="btn danger hidden" id="btn-stop-speak">■ <span data-i18n="ep.stop">Stop</span></button>
               <div class="dropdown">
-                <button class="btn" id="btn-export" aria-haspopup="menu">Export ▾</button>
+                <button class="btn" id="btn-export" aria-haspopup="menu"><span data-i18n="ep.export">Export</span> ▾</button>
                 <div class="menu hidden" id="export-menu" role="menu">
-                  <div class="menu-label">Script</div>
-                  <button data-export="doc">Word document — Tamil + Kannada (.doc)</button>
-                  <button data-export="txt">Kannada only (.txt)</button>
-                  <button data-export="csv">Excel table (.csv)</button>
-                  <button data-export="srt">Subtitles (.srt)</button>
-                  <div class="menu-label">Audio</div>
-                  <button data-export="wav">Kannada voice, all lines (.wav)</button>
-                  <button data-export="dub">Kannada dub track, timed to episode (.wav)</button>
+                  <div class="menu-label" data-i18n="exp.script">Script</div>
+                  <button data-export="doc" data-i18n="exp.doc">Word document — Tamil + Kannada (.doc)</button>
+                  <button data-export="txt" data-i18n="exp.txt">Kannada only (.txt)</button>
+                  <button data-export="csv" data-i18n="exp.csv">Excel table (.csv)</button>
+                  <button data-export="srt" data-i18n="exp.srt">Subtitles (.srt)</button>
+                  <div class="menu-label" data-i18n="exp.audio">Audio</div>
+                  <button data-export="wav" data-i18n="exp.wav">Kannada voice, all lines (.wav)</button>
+                  <button data-export="dub" data-i18n="exp.dub">Kannada dub track, timed to episode (.wav)</button>
                 </div>
               </div>
               <div class="dropdown">
                 <button class="btn icon-btn" id="btn-more" aria-haspopup="menu" title="More">⋯</button>
                 <div class="menu hidden" id="more-menu" role="menu">
-                  <button id="btn-retranslate-all">↻ Translate again with current settings</button>
-                  <button id="btn-relink-menu">🎞 Locate the episode file…</button>
-                  <button id="btn-delete-ep" class="danger-text">Delete this episode</button>
+                  <button id="btn-retranslate-all">↻ <span data-i18n="more.redo">Translate again with current settings</span></button>
+                  <button id="btn-relink-menu">🎞 <span data-i18n="more.locate">Locate the episode file…</span></button>
+                  <button id="btn-delete-ep" class="danger-text" data-i18n="more.delete">Delete this episode</button>
                 </div>
               </div>
             </div>
@@ -84,13 +87,13 @@
           <!-- progress -->
           <div class="progress hidden" id="progress">
             <div class="steps">
-              <span class="step" id="step-listen"><i>1</i>Listening</span>
+              <span class="step" id="step-listen"><i>1</i><span data-i18n="step.listen">Listening</span></span>
               <span class="step-line"></span>
-              <span class="step" id="step-write"><i>2</i>Writing Kannada</span>
+              <span class="step" id="step-write"><i>2</i><span data-i18n="step.write">Writing Kannada</span></span>
               <span class="step-line"></span>
-              <span class="step" id="step-ready"><i>3</i>Ready</span>
+              <span class="step" id="step-ready"><i>3</i><span data-i18n="step.ready">Ready</span></span>
               <span class="progress-text" id="progress-text"></span>
-              <button class="btn small ghost" id="btn-cancel">Pause</button>
+              <button class="btn small ghost" id="btn-cancel" data-i18n="step.pause">Pause</button>
             </div>
             <div class="bar"><div class="fill" id="progress-fill"></div></div>
           </div>
@@ -104,24 +107,24 @@
           <div class="media" id="media">
             <video id="player" controls preload="metadata"></video>
             <div class="media-missing hidden" id="media-missing">
-              <span>The original episode file isn't linked, so the Tamil audio can't be played.</span>
-              <button class="btn small" id="btn-relink">Locate file…</button>
+              <span data-i18n="ep.missing">The original episode file isn't linked, so the Tamil audio can't be played.</span>
+              <button class="btn small" id="btn-relink" data-i18n="ep.locate">Locate file…</button>
             </div>
           </div>
 
           <div class="toolbar">
             <div class="search-wrap">
-              <input id="search" class="search" type="search" placeholder="Search Tamil or Kannada" aria-label="Search lines" />
+              <input id="search" class="search" type="search" data-i18n-ph="ep.search" placeholder="Search Tamil or Kannada" aria-label="Search lines" />
               <span class="search-count" id="search-count"></span>
             </div>
-            <label class="switch" title="Scroll the list along with the video">
-              <input type="checkbox" id="follow" checked /><span></span> Follow video
+            <label class="switch" data-i18n-title="ep.followTip" title="Scroll the list along with the video">
+              <input type="checkbox" id="follow" checked /><span></span> <em data-i18n="ep.follow">Follow video</em>
             </label>
             <div class="textsize" title="Kannada text size">
               <button class="btn small ghost" id="kn-smaller" aria-label="Smaller text">A−</button>
               <button class="btn small ghost" id="kn-bigger" aria-label="Bigger text">A+</button>
             </div>
-            <span class="shortcuts muted small" title="Keyboard shortcuts">Space play · ↑↓ move · K listen · E edit</span>
+            <span class="shortcuts muted small" data-i18n="ep.keys">Space play · ↑↓ move · K listen · E edit</span>
           </div>
 
           <div class="lines" id="lines" tabindex="-1"></div>
@@ -133,11 +136,11 @@
     <section class="view" id="view-live" role="tabpanel">
       <div class="live-bar">
         <div class="seg" id="live-source" role="radiogroup" aria-label="Listen to">
-          <button data-src="system" class="on" role="radio" aria-checked="true">💻 This laptop's sound</button>
-          <button data-src="mic" role="radio" aria-checked="false">🎤 Microphone</button>
+          <button data-src="system" class="on" role="radio" aria-checked="true">💻 <span data-i18n="live.system">This laptop's sound</span></button>
+          <button data-src="mic" role="radio" aria-checked="false">🎤 <span data-i18n="live.mic">Microphone</span></button>
         </div>
         <select id="mic-select" class="hidden" aria-label="Microphone"></select>
-        <label class="switch"><input type="checkbox" id="live-speak" /><span></span> Speak Kannada aloud</label>
+        <label class="switch"><input type="checkbox" id="live-speak" /><span></span> <em data-i18n="live.speak">Speak Kannada aloud</em></label>
         <div class="live-spacer"></div>
         <div class="live-status" id="live-status"><span class="dot"></span><span id="live-state">Not listening</span>
           <div class="meter"><div class="meter-fill" id="meter"></div></div></div>
@@ -148,99 +151,114 @@
       <div class="live-footer">
         <span class="muted small" id="live-count"></span>
         <div class="live-spacer"></div>
-        <button class="btn ghost" id="btn-live-clear">Clear</button>
-        <button class="btn" id="btn-live-save">Save as episode</button>
+        <button class="btn ghost" id="btn-live-clear" data-i18n="live.clear">Clear</button>
+        <button class="btn" id="btn-live-save" data-i18n="live.save">Save as episode</button>
       </div>
     </section>
 
     <!-- ================= SETTINGS ================= -->
     <section class="view" id="view-settings" role="tabpanel">
       <div class="settings">
+        <section class="sect dash-sect">
+          <div class="sect-head">
+            <h2 data-i18n="dash.title">Usage &amp; keys</h2>
+            <p data-i18n="dash.sub">What this app has used this month, and an estimate of what it cost.</p>
+            <div class="dash-actions">
+              <button class="btn small" id="btn-dash-refresh">↻ <span data-i18n="dash.refresh">Refresh</span></button>
+              <button class="btn small ghost" id="btn-dash-reset" data-i18n="dash.reset">Reset counters</button>
+            </div>
+          </div>
+          <div class="sect-body">
+            <div class="dash-total" id="dash-total"></div>
+            <div class="dash" id="dash"></div>
+            <p class="help" data-i18n="dash.note">Counted on this computer from what the app sent. Claude and Sarvam don't share your account balance with apps, so open their consoles for the exact balance. Kenpath's remaining characters come from Kenpath itself.</p>
+          </div>
+        </section>
+
         <section class="sect">
-          <div class="sect-head"><h2>API keys</h2><p>Stored only on this computer, encrypted by the operating system.</p></div>
+          <div class="sect-head"><h2 data-i18n="keys.title">API keys</h2><p data-i18n="keys.sub">Stored only on this computer, encrypted by the operating system.</p></div>
           <div class="sect-body">
             <div class="field">
-              <label for="sarvamKey">Sarvam AI key <span class="tag req">Required</span></label>
-              <input id="sarvamKey" type="password" placeholder="Paste your Sarvam key" autocomplete="off" spellcheck="false" />
-              <p class="help">Hears the Tamil audio. Get one at <a href="https://dashboard.sarvam.ai" target="_blank">dashboard.sarvam.ai</a>.</p>
+              <label for="sarvamKey"><span data-i18n="keys.sarvam">Sarvam AI key</span> <span class="tag req" data-i18n="tag.req">Required</span></label>
+              <input id="sarvamKey" type="password" data-i18n-ph="keys.paste" placeholder="Paste key" autocomplete="off" spellcheck="false" />
+              <p class="help" data-i18n="keys.sarvamHelp">Hears the Tamil audio. Get one at <a href="https://dashboard.sarvam.ai" target="_blank">dashboard.sarvam.ai</a>.</p>
             </div>
             <div class="field">
-              <label for="anthropicKey">Claude key <span class="tag rec">Recommended</span></label>
-              <input id="anthropicKey" type="password" placeholder="Paste your Claude (Anthropic) key" autocomplete="off" spellcheck="false" />
-              <p class="help">Scene-aware Kannada dialogue (Claude Haiku by default). Get one at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Without it, Sarvam translates.</p>
+              <label for="anthropicKey"><span data-i18n="keys.claude">Claude key</span> <span class="tag rec" data-i18n="tag.rec">Recommended</span></label>
+              <input id="anthropicKey" type="password" data-i18n-ph="keys.paste" placeholder="Paste key" autocomplete="off" spellcheck="false" />
+              <p class="help" data-i18n="keys.claudeHelp">Fixes the heard Tamil and writes the Kannada, on Claude Haiku 5.5 to keep costs low. Get one at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Without it, Sarvam translates.</p>
             </div>
             <div class="field">
-              <label for="kenpathKey">Kenpath Labs key <span class="tag rec">Recommended</span></label>
-              <input id="kenpathKey" type="password" placeholder="Paste your Kenpath Labs key" autocomplete="off" spellcheck="false" />
-              <p class="help">Speaks the Kannada with Svara voices (100,000 free characters a month). Get one at <a href="https://platform.kenpathlabs.com/dashboard/keys" target="_blank">platform.kenpathlabs.com</a>. Without it, Sarvam speaks.</p>
+              <label for="kenpathKey"><span data-i18n="keys.kenpath">Kenpath Labs key</span> <span class="tag rec" data-i18n="tag.rec">Recommended</span></label>
+              <input id="kenpathKey" type="password" data-i18n-ph="keys.paste" placeholder="Paste key" autocomplete="off" spellcheck="false" />
+              <p class="help" data-i18n="keys.kenpathHelp">Speaks the Kannada with Svara voices (100,000 free characters a month). Get one at <a href="https://platform.kenpathlabs.com/dashboard/keys" target="_blank">platform.kenpathlabs.com</a>. Without it, Sarvam speaks.</p>
             </div>
             <div class="row">
-              <button class="btn" id="btn-test">Check keys</button>
+              <button class="btn" id="btn-test" data-i18n="keys.check">Check keys</button>
               <span id="test-result" class="test-result" aria-live="polite"></span>
             </div>
           </div>
         </section>
 
         <section class="sect">
-          <div class="sect-head"><h2>Kannada writing</h2><p>How the characters should sound in the remake.</p></div>
+          <div class="sect-head"><h2 data-i18n="write.title">Kannada writing</h2><p data-i18n="write.sub">How the characters should sound. This changes the wording only, never the meaning.</p></div>
           <div class="sect-body">
             <div class="field">
-              <label>Speaking style</label>
+              <label data-i18n="write.style">Speaking style</label>
               <div class="choices" id="style-choices">
-                <label><input type="radio" name="kannadaStyle" value="bengaluru" /><span><b>Bengaluru</b><em>“ಏನ್ ಮಾಡ್ತಿದ್ದೀಯಾ?” — most serials</em></span></label>
-                <label><input type="radio" name="kannadaStyle" value="mysuru" /><span><b>Mysuru–Mandya</b><em>“ಏನ್ಲಾ, ಬಾರಮ್ಮ” — family / village</em></span></label>
-                <label><input type="radio" name="kannadaStyle" value="north" /><span><b>North Karnataka</b><em>“ಏನ್ರೀ, ಬರ್ರಿ” — Hubballi–Dharwad</em></span></label>
-                <label><input type="radio" name="kannadaStyle" value="formal" /><span><b>Standard</b><em>“ನೀವು ಏನು ಮಾಡುತ್ತಿದ್ದೀರಿ?” — formal</em></span></label>
+                <label><input type="radio" name="kannadaStyle" value="bengaluru" /><span><b data-i18n="write.casual">Everyday spoken</b><em data-i18n="write.casualD">“ಏನ್ ಮಾಡ್ತಿದ್ದೀಯಾ?” — how most people talk, as in most serials</em></span></label>
+                <label><input type="radio" name="kannadaStyle" value="formal" /><span><b data-i18n="write.formal">Standard</b><em data-i18n="write.formalD">“ನೀವು ಏನು ಮಾಡುತ್ತಿದ್ದೀರಿ?” — clean and formal</em></span></label>
               </div>
             </div>
             <div class="field">
-              <label for="glossary">Character &amp; place names</label>
+              <label for="glossary" data-i18n="write.names">Character &amp; place names</label>
               <textarea id="glossary" rows="5" placeholder="One per line:  Tamil = Kannada&#10;மீனா = ಮೀನಾ&#10;மதுரை = ಮೈಸೂರು"></textarea>
-              <p class="help">Keeps names the same in every line, and lets you rename them for the remake.</p>
+              <p class="help" data-i18n="write.namesHelp">Keeps names the same in every line, and lets you rename them for the remake.</p>
             </div>
             <div class="field">
-              <label for="storyNotes">Story notes <span class="muted">(optional)</span></label>
-              <textarea id="storyNotes" rows="3" placeholder="e.g. Meena is the elder daughter-in-law, always respectful. Karthik speaks rough and fast."></textarea>
+              <label for="storyNotes"><span data-i18n="write.notes">Story notes</span> <span class="muted" data-i18n="optional">(optional)</span></label>
+              <textarea id="storyNotes" rows="3" data-i18n-ph="write.notesPh" placeholder="e.g. Meena is the elder daughter-in-law, always respectful. Karthik speaks rough and fast."></textarea>
             </div>
           </div>
         </section>
 
         <section class="sect">
-          <div class="sect-head"><h2>Kannada voice</h2><p>Used for “Listen in Kannada”, Live and audio exports.</p></div>
+          <div class="sect-head"><h2 data-i18n="voice.title">Kannada voice</h2><p data-i18n="voice.sub">Used for “Listen in Kannada”, Live and audio exports.</p></div>
           <div class="sect-body">
             <div class="row2">
-              <div class="field"><label for="voiceFemale">Women's voice</label><select id="voiceFemale"></select></div>
-              <div class="field"><label for="voiceMale">Men's voice</label><select id="voiceMale"></select></div>
+              <div class="field"><label for="voiceFemale" data-i18n="voice.female">Women's voice</label><select id="voiceFemale"></select></div>
+              <div class="field"><label for="voiceMale" data-i18n="voice.male">Men's voice</label><select id="voiceMale"></select></div>
             </div>
-            <label class="switch"><input type="checkbox" id="voiceAuto" /><span></span> Pick the voice by who is speaking (detected automatically)</label>
+            <label class="switch"><input type="checkbox" id="voiceAuto" /><span></span> <em data-i18n="voice.auto">Switch between the man's and woman's voice by who is speaking</em></label>
             <div class="field">
-              <label for="pace">Speed <b id="pace-val">1.00×</b></label>
-              <input type="range" id="pace" min="0.6" max="1.6" step="0.05" />
+              <label for="pace"><span data-i18n="voice.speed">Speed</span> <b id="pace-val">1.00×</b></label>
+              <input type="range" id="pace" min="0.7" max="1.5" step="0.05" />
             </div>
-            <button class="btn" id="btn-preview-voice">🔊 Preview</button>
+            <button class="btn" id="btn-preview-voice">🔊 <span data-i18n="voice.preview">Preview</span></button>
           </div>
         </section>
 
         <details class="sect advanced">
-          <summary><h2>Advanced</h2></summary>
+          <summary><h2 data-i18n="adv.title">Advanced</h2></summary>
           <div class="sect-body">
             <div class="field">
-              <label for="translationEngine">Translator</label>
+              <label for="claudeModel" data-i18n="adv.model">Claude model</label>
+              <select id="claudeModel">
+                <option value="claude-haiku-5-5">Haiku 5.5 — cheapest, about 3¢ an episode (default)</option>
+                <option value="claude-sonnet-5-5">Sonnet 5.5 — more natural, about 50¢ an episode</option>
+                <option value="claude-opus-5-5">Opus 5.5 — best, about $1 an episode</option>
+              </select>
+              <p class="help" data-i18n="adv.modelHelp">Stays on Haiku unless you change it here. A new Claude key always starts on Haiku.</p>
+            </div>
+            <div class="field">
+              <label for="translationEngine" data-i18n="adv.engine">Translator</label>
               <select id="translationEngine">
                 <option value="auto">Claude when its key is set, otherwise Sarvam</option>
                 <option value="sarvam">Always Sarvam (Mayura)</option>
               </select>
             </div>
             <div class="field">
-              <label for="claudeModel">Claude model</label>
-              <select id="claudeModel">
-                <option value="claude-haiku-5-5">Haiku 5.5 — cheapest, about 3¢ an episode (default)</option>
-                <option value="claude-sonnet-5-5">Sonnet 5.5 — more natural, about 50¢ an episode</option>
-                <option value="claude-opus-5-5">Opus 5.5 — best, about $1 an episode</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="ttsModel">Voice model</label>
+              <label for="ttsModel" data-i18n="adv.voice">Voice model</label>
               <select id="ttsModel">
                 <option value="svara-tts-turbo">Kenpath Svara — Kannada voices (recommended)</option>
                 <option value="bulbul:v3">Sarvam Bulbul v3 — natural</option>
@@ -249,42 +267,60 @@
               </select>
             </div>
             <div class="field">
-              <label for="sttModel">Tamil speech model</label>
+              <label for="sttModel" data-i18n="adv.stt">Tamil speech model</label>
               <select id="sttModel">
                 <option value="saaras:v3">Saaras v3 — stable</option>
                 <option value="saaras:v4">Saaras v4 — latest</option>
               </select>
             </div>
-            <p class="muted small" id="app-version"></p>
+            <div class="row">
+              <button class="btn small" id="btn-tour" data-i18n="adv.tour">Show the tutorial again</button>
+              <span class="muted small" id="app-version"></span>
+            </div>
           </div>
         </details>
       </div>
     </section>
   </main>
 
-  <!-- first run -->
+  <!-- first run: keys -->
   <div class="overlay hidden" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
     <div class="welcome">
       <div class="welcome-mark">ಅ</div>
-      <h1 id="welcome-title">Welcome to Anuvaada</h1>
-      <p class="muted">Tamil serial episodes, written and spoken in natural Kannada. Three keys and you're ready.</p>
+      <h1 id="welcome-title" data-i18n="w.title">Welcome to Anuvaada</h1>
+      <p class="muted" data-i18n="w.sub">Tamil serial episodes, written and spoken in natural Kannada. Three keys and you're ready.</p>
       <div class="field">
-        <label for="w-sarvam">1 · Sarvam AI key <span class="tag req">Required</span></label>
-        <input id="w-sarvam" type="password" placeholder="Paste key" autocomplete="off" spellcheck="false" />
+        <label for="w-sarvam"><span data-i18n="w.k1">1 · Sarvam AI key</span> <span class="tag req" data-i18n="tag.req">Required</span></label>
+        <input id="w-sarvam" type="password" data-i18n-ph="keys.paste" placeholder="Paste key" autocomplete="off" spellcheck="false" />
         <p class="help">Free sign-up at <a href="https://dashboard.sarvam.ai" target="_blank">dashboard.sarvam.ai</a> → API keys.</p>
       </div>
       <div class="field">
-        <label for="w-claude">2 · Claude key <span class="tag rec">Recommended</span></label>
-        <input id="w-claude" type="password" placeholder="Paste key (you can add it later)" autocomplete="off" spellcheck="false" />
+        <label for="w-claude"><span data-i18n="w.k2">2 · Claude key</span> <span class="tag rec" data-i18n="tag.rec">Recommended</span></label>
+        <input id="w-claude" type="password" data-i18n-ph="w.later" placeholder="Paste key (you can add it later)" autocomplete="off" spellcheck="false" />
         <p class="help">For the best Kannada. <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API keys.</p>
       </div>
       <div class="field">
-        <label for="w-kenpath">3 · Kenpath Labs key <span class="tag rec">Recommended</span></label>
-        <input id="w-kenpath" type="password" placeholder="Paste key (you can add it later)" autocomplete="off" spellcheck="false" />
+        <label for="w-kenpath"><span data-i18n="w.k3">3 · Kenpath Labs key</span> <span class="tag rec" data-i18n="tag.rec">Recommended</span></label>
+        <input id="w-kenpath" type="password" data-i18n-ph="w.later" placeholder="Paste key (you can add it later)" autocomplete="off" spellcheck="false" />
         <p class="help">Kannada voices. <a href="https://platform.kenpathlabs.com/signup" target="_blank">platform.kenpathlabs.com</a> → API keys.</p>
       </div>
       <p class="w-error" id="w-error" aria-live="polite"></p>
-      <button class="btn primary lg block" id="w-go">Check keys &amp; start</button>
+      <button class="btn primary lg block" id="w-go" data-i18n="w.go">Check keys &amp; start</button>
+    </div>
+  </div>
+
+  <!-- first run: tutorial (shown once) -->
+  <div class="overlay tour hidden" id="tour" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <div class="tour-card">
+      <button class="btn small ghost tour-skip" id="tour-skip" data-i18n="tour.skip">Skip</button>
+      <div class="tour-art" id="tour-art"></div>
+      <h2 id="tour-title"></h2>
+      <p id="tour-text" class="muted"></p>
+      <div class="tour-foot">
+        <div class="tour-dots" id="tour-dots"></div>
+        <button class="btn ghost" id="tour-back" data-i18n="tour.back">Back</button>
+        <button class="btn primary" id="tour-next" data-i18n="tour.next">Next</button>
+      </div>
     </div>
   </div>
 
@@ -292,6 +328,7 @@
 
   <script src="audio.js"></script>
   <script src="voices.js"></script>
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

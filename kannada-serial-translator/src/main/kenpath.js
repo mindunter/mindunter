@@ -17,6 +17,7 @@ class ApiError extends Error {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let lastRemaining = NaN; // characters left on the plan, from the last response header
 
 async function request(key, pathname, body, attempt = 0) {
   if (!key) throw new ApiError('Kenpath Labs API key is missing. Add it in Settings, or pick a Sarvam voice model.', 401);
@@ -35,7 +36,11 @@ async function request(key, pathname, body, attempt = 0) {
     }
     throw new ApiError('Could not reach Kenpath Labs. Check the internet connection. (' + err.message + ')', 0);
   }
-  if (res.ok) return Buffer.from(await res.arrayBuffer());
+  if (res.ok) {
+    const left = Number(res.headers.get('x-ratelimit-remaining-characters'));
+    if (res.headers.has('x-ratelimit-remaining-characters') && Number.isFinite(left)) lastRemaining = left;
+    return Buffer.from(await res.arrayBuffer());
+  }
   const text = await res.text().catch(() => '');
   if ((res.status === 429 || res.status >= 500) && attempt < 4) {
     const retryAfter = Number(res.headers.get('retry-after')) || 0;
@@ -87,4 +92,6 @@ async function testKey(key) {
 
 const isKenpathModel = (model) => String(model || '').startsWith('svara');
 
-module.exports = { speak, testKey, isKenpathModel, MODEL, DEFAULT_FEMALE, DEFAULT_MALE, ApiError };
+const lastRemainingChars = () => lastRemaining;
+
+module.exports = { speak, testKey, isKenpathModel, lastRemainingChars, MODEL, DEFAULT_FEMALE, DEFAULT_MALE, ApiError };

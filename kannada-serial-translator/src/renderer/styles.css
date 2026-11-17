@@ -535,3 +535,4 @@ html[data-lang="kn"] body { --ui-font: "AV Kannada", "Segoe UI Variable Text", "
 ::-webkit-scrollbar-track { background: transparent; }
 @media (max-width: 980px) { .mode-label { display: none; } .topbar { gap: 12px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+.made-for { margin: 16px 0 -4px; font: 700 11.5px var(--ui-font); letter-spacing: .14em; color: var(--gold); }

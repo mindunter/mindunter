@@ -213,10 +213,41 @@ app.whenReady().then(() => {
   setupMediaPermissions();
   registerIpc();
   createWindow();
+  setupAutoUpdate();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+// Updates come from GitHub Releases (mindunter/mindunter). Installed builds only.
+function setupAutoUpdate() {
+  if (!app.isPackaged || process.platform !== 'win32') return;
+  let autoUpdater;
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+  } catch {
+    return;
+  }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('error', (e) => console.warn('update check failed:', e && e.message));
+  autoUpdater.on('update-downloaded', async (info) => {
+    const { dialog } = require('electron');
+    const r = await dialog.showMessageBox(win, {
+      type: 'info',
+      buttons: ['Restart now', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Update ready',
+      message: `Anuvaada ${info.version} is ready to install.`,
+      detail: 'Restart now to update, or it will install the next time you close the app.',
+    });
+    if (r.response === 0) autoUpdater.quitAndInstall();
+  });
+  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  setTimeout(check, 8000);
+  setInterval(check, 6 * 60 * 60 * 1000);
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

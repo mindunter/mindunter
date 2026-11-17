@@ -54,7 +54,7 @@ async function transcribe(settings, wavBuffer, { withTimestamps = false } = {}) 
   const model = settings.sttModel || 'saaras:v3';
   form.append('model', model);
   if (model === 'saaras:v3') form.append('mode', 'transcribe');
-  form.append('language_code', 'ta-IN');
+  form.append('language_code', settings.sourceLang === 'kn' ? 'kn-IN' : 'ta-IN');
   if (withTimestamps) form.append('with_timestamps', 'true');
   const j = await request(settings.sarvamKey, '/speech-to-text', { method: 'POST', body: form });
   const out = { transcript: (j.transcript || '').trim(), segments: [] };

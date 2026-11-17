@@ -17,6 +17,7 @@ const DEFAULTS = {
   kenpathKey: '',
   // Speech-to-text
   sttModel: 'saaras:v3',
+  sourceLang: 'ta', // ta = Tamil audio -> Kannada | kn = Kannada audio -> Kannada text
   // Translation
   translationEngine: 'auto', // auto = Claude if key present, else Sarvam
   claudeModel: 'claude-haiku-5-5',

@@ -19,6 +19,13 @@
       <button class="tab" data-tab="settings" role="tab" aria-selected="false" data-i18n="tab.settings">Settings</button>
     </nav>
     <div class="top-right">
+      <label class="mode-pick" title="What language is spoken in the audio?">
+        <span class="mode-label" data-i18n="mode.label">Audio</span>
+        <select id="sourceLang" aria-label="Audio language">
+          <option value="ta" data-i18n="mode.ta">Tamil → Kannada</option>
+          <option value="kn" data-i18n="mode.kn">Kannada → Kannada text</option>
+        </select>
+      </label>
       <button class="lang-btn" id="lang-btn" title="English / ಕನ್ನಡ"><span class="lang-en">EN</span><span class="lang-kn">ಕ</span></button>
       <button class="keystatus" id="keystatus" data-i18n-title="top.keys" title="API keys"></button>
     </div>
@@ -267,7 +274,7 @@
               </select>
             </div>
             <div class="field">
-              <label for="sttModel" data-i18n="adv.stt">Tamil speech model</label>
+              <label for="sttModel" data-i18n="adv.stt">Speech model</label>
               <select id="sttModel">
                 <option value="saaras:v3">Saaras v3: stable</option>
                 <option value="saaras:v4">Saaras v4: latest</option>

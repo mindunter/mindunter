@@ -481,7 +481,7 @@ async function runPipeline(project, samples, job) {
     while (st.next < chunks.length && results[st.next] !== undefined) {
       const c = chunks[st.next];
       for (const seg of results[st.next]) {
-        const line = { id: 'L' + ++st.lineNo, start: seg.start, end: seg.end, ta: seg.ta, kn: seg.ta ? null : '', gender: 'unknown', note: '', chunk: [c.s0, c.s1] };
+        const line = { id: 'L' + ++st.lineNo, start: seg.start, end: seg.end, ta: seg.ta, kn: seg.ta ? (isKannadaAudio() ? seg.ta : null) : '', gender: 'unknown', note: '', chunk: [c.s0, c.s1] };
         if (seg.error) line.error = seg.error;
         project.lines.push(line);
         addLineEl(line);
@@ -1173,6 +1173,15 @@ function onLiveChunk(samples) {
     line.ta = (r.transcript || '').trim();
     if (!line.ta) { el.remove(); Live.lines.splice(Live.lines.indexOf(line), 1); return; }
     $('.ta', el).textContent = line.ta;
+    if (isKannadaAudio()) {
+      // Kannada audio: the transcript already is the Kannada line
+      line.kn = line.ta;
+      kn.className = 'kn';
+      kn.textContent = line.kn;
+      updateLiveCount();
+      if ($('#live-speak').checked && Live.running) queueLiveSpeech(line);
+      return;
+    }
     kn.textContent = t('Writing Kannada…');
     try {
       const context = Live.lines.filter((l) => l.kn).slice(-10).map((l) => ({ ta: l.ta, kn: l.kn, gender: l.gender }));
@@ -1241,7 +1250,8 @@ $('#btn-live-save').onclick = async () => {
 
 // ================================================================ SETTINGS
 const KEY_FIELDS = ['sarvamKey', 'anthropicKey', 'kenpathKey'];
-const FIELDS = [...KEY_FIELDS, 'glossary', 'storyNotes', 'translationEngine', 'claudeModel', 'ttsModel', 'voiceFemale', 'voiceMale', 'voiceAuto', 'pace', 'sttModel'];
+const FIELDS = [...KEY_FIELDS, 'glossary', 'storyNotes', 'translationEngine', 'claudeModel', 'ttsModel', 'voiceFemale', 'voiceMale', 'voiceAuto', 'pace', 'sttModel', 'sourceLang'];
+function isKannadaAudio() { return settings && settings.sourceLang === 'kn'; }
 
 function fillVoiceSelects() {
   const model = $('#ttsModel').value;
